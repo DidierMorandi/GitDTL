@@ -1178,10 +1178,16 @@ class GitDTLApp:
             result = self.run_git(["commit", "-m", message])
             if result.returncode == 0:
                 self.show_info(APP_NAME, "Changements validés avec succès.")
+            elif self.is_nothing_to_commit(result):
+                self.show_info(APP_NAME, "Aucun changement à valider.\n\nLe projet est déjà à jour.")
             else:
                 self.show_command_error(result)
         except Exception as exc:
             self.show_error(exc)
+
+    def is_nothing_to_commit(self, result: subprocess.CompletedProcess[str]) -> bool:
+        output = f"{result.stdout}\n{result.stderr}".lower()
+        return "nothing to commit" in output and "working tree clean" in output
 
     def push_to_github(self) -> None:
         try:
