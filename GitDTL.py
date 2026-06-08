@@ -15,6 +15,7 @@ APP_NAME = "GitDTL"
 APP_VERSION = "v1.0.0"
 APP_SUBTITLE = "Git simplifié pour les projets DTL"
 HELP_FILE = "aide.md"
+EXPERT_FILE = "expert_git.md"
 DEFAULT_HELP_TEXTS = {
     "create_git_repository": (
         "Un projet Git permet de suivre l'historique des fichiers.\n\n"
@@ -70,6 +71,58 @@ DEFAULT_HELP_TEXTS = {
             "Elle prépare ces changements pour la prochaine validation."
     ),
 }
+DEFAULT_EXPERT_RULES = [
+    {
+        "name": "Aucun dépôt distant configuré",
+        "patterns": ["no configured push destination", "git remote add"],
+        "advice": (
+            "Git ne connaît pas encore l'adresse GitHub du projet.\n\n"
+            "Dans GitDTL, utilisez l'option 7 : l'outil demandera l'adresse du dépôt GitHub "
+            "et configurera automatiquement le remote origin."
+        ),
+    },
+    {
+        "name": "Branche sans upstream",
+        "patterns": ["has no upstream branch", "--set-upstream"],
+        "advice": (
+            "La branche locale n'est pas encore reliée à sa branche GitHub.\n\n"
+            "GitDTL sait corriger ce cas automatiquement avec :\n"
+            "git push --set-upstream origin <branche>"
+        ),
+    },
+    {
+        "name": "Rien à valider",
+        "patterns": ["nothing to commit", "working tree clean"],
+        "advice": (
+            "Il n'y a plus de changement local à valider.\n\n"
+            "L'étape suivante logique est de publier avec l'option 7, ou simplement de revenir au menu."
+        ),
+    },
+    {
+        "name": "Push refusé par avance distante",
+        "patterns": ["failed to push some refs", "fetch first"],
+        "advice": (
+            "Le dépôt GitHub contient probablement des changements absents du dossier local.\n\n"
+            "Commencez par l'option 10 pour synchroniser depuis GitHub, puis relancez la publication."
+        ),
+    },
+    {
+        "name": "Authentification GitHub refusée",
+        "patterns": ["authentication failed", "permission denied", "could not read from remote repository"],
+        "advice": (
+            "GitHub refuse l'accès au dépôt distant.\n\n"
+            "Vérifiez l'URL du remote, le compte GitHub utilisé, et l'authentification HTTPS ou SSH."
+        ),
+    },
+    {
+        "name": "Fichier introuvable pour Git",
+        "patterns": ["pathspec", "did not match any file"],
+        "advice": (
+            "Git ne trouve pas le fichier demandé.\n\n"
+            "Vérifiez que le fichier existe encore dans le dossier du projet, puis relancez l'action."
+        ),
+    },
+]
 
 COLOR_BG = "#090d0f"
 COLOR_PANEL = "#12171b"
@@ -253,6 +306,8 @@ class GitDTLApp:
         self.log_dir = self.project_dir / "logs"
         self.log_file = self.log_dir / "gitdtl.log"
         self.help_texts = self.load_help_texts()
+        self.expert_rules = self.load_expert_rules()
+        self.menu_buttons = {}
 
         self.root.title(f"{APP_NAME} {APP_VERSION}")
         self.root.geometry("920x760")
@@ -317,6 +372,67 @@ class GitDTLApp:
 
     def help_text(self, key: str) -> str:
         return self.help_texts.get(key, DEFAULT_HELP_TEXTS.get(key, "Aucune aide disponible."))
+
+    def load_expert_rules(self) -> list[dict[str, object]]:
+        expert_path = self.app_dir / EXPERT_FILE
+        if not expert_path.exists() and self.app_dir.name.lower() == "dist":
+            expert_path = self.app_dir.parent / EXPERT_FILE
+        if not expert_path.exists():
+            return DEFAULT_EXPERT_RULES
+
+        try:
+            content = expert_path.read_text(encoding="utf-8")
+        except OSError:
+            return DEFAULT_EXPERT_RULES
+
+        rules = []
+        current_rule = None
+        current_field = None
+        for raw_line in content.splitlines():
+            line = raw_line.rstrip()
+            stripped = line.strip()
+
+            if stripped.startswith("## "):
+                if current_rule is not None:
+                    rules.append(current_rule)
+                current_rule = {"name": stripped[3:].strip(), "patterns": [], "advice_lines": []}
+                current_field = None
+                continue
+
+            if current_rule is None:
+                continue
+
+            if stripped.lower() == "patterns:":
+                current_field = "patterns"
+                continue
+            if stripped.lower() == "advice:":
+                current_field = "advice"
+                continue
+
+            if current_field == "patterns" and stripped.startswith("- "):
+                current_rule["patterns"].append(stripped[2:].lower())
+            elif current_field == "advice":
+                current_rule["advice_lines"].append(line)
+
+        if current_rule is not None:
+            rules.append(current_rule)
+
+        parsed_rules = []
+        for rule in rules:
+            patterns = [pattern for pattern in rule["patterns"] if pattern]
+            advice = "\n".join(rule["advice_lines"]).strip()
+            if patterns and advice:
+                parsed_rules.append({"name": rule["name"], "patterns": patterns, "advice": advice})
+
+        return parsed_rules or DEFAULT_EXPERT_RULES
+
+    def expert_advice(self, output: str) -> str | None:
+        normalized_output = output.lower()
+        for rule in self.expert_rules:
+            patterns = rule.get("patterns", [])
+            if any(pattern in normalized_output for pattern in patterns):
+                return f"{rule.get('name', 'Conseil GitDTL')}\n\n{rule.get('advice', '')}"
+        return None
 
     def _configure_style(self) -> None:
         style = ttk.Style()
@@ -476,6 +592,7 @@ class GitDTLApp:
                 pady=0,
             )
             label_button.grid(row=index, column=1, sticky="w")
+            self.menu_buttons[number] = (number_button, label_button)
 
         footer = tk.Label(
             shell,
@@ -485,6 +602,13 @@ class GitDTLApp:
             font=("Courier New", 10),
         )
         footer.pack(anchor="w", pady=(18, 0))
+
+    def highlight_next_options(self, option_numbers: list[str]) -> None:
+        selected = set(option_numbers)
+        for number, buttons in self.menu_buttons.items():
+            color = COLOR_WARNING if number in selected else COLOR_TEXT
+            for button in buttons:
+                button.configure(fg=color)
 
     def with_git_repository(self, command):
         def wrapped_command() -> None:
@@ -956,6 +1080,7 @@ class GitDTLApp:
             return
 
         self.add_to_gitignore(common_dirs)
+        self.highlight_next_options(["4"])
         self.show_info(APP_NAME, "Dossier(s) ajouté(s) à .gitignore.")
 
     def common_untracked_python_dirs(self) -> list[str]:
@@ -1043,6 +1168,7 @@ class GitDTLApp:
         try:
             result = self.run_git(["add", "--", *filenames])
             if result.returncode == 0:
+                self.highlight_next_options(["6"])
                 self.show_info(APP_NAME, success_message)
             else:
                 self.show_command_error(result)
@@ -1120,6 +1246,7 @@ class GitDTLApp:
                         self.show_command_error(result)
                         return
                 self.delete_untracked_targets(untracked_targets)
+                self.highlight_next_options(["6"])
                 self.show_info(APP_NAME, "Élément(s) supprimé(s) du dépôt et du dossier.")
             else:
                 if tracked_targets:
@@ -1128,6 +1255,7 @@ class GitDTLApp:
                         self.show_command_error(result)
                         return
                 self.add_to_gitignore(targets)
+                self.highlight_next_options(["4"])
                 self.show_info(APP_NAME, "Élément(s) retiré(s) du dépôt et ajouté(s) dans .gitignore.")
         except Exception as exc:
             self.show_error(exc)
@@ -1242,6 +1370,7 @@ class GitDTLApp:
         try:
             result = self.run_git(["commit", "-m", message])
             if result.returncode == 0:
+                self.highlight_next_options(["7"])
                 self.show_info(APP_NAME, "Changements validés avec succès.")
             elif self.is_nothing_to_commit(result):
                 self.show_info(APP_NAME, "Aucun changement à valider.\n\nLe projet est déjà à jour.")
@@ -1262,6 +1391,7 @@ class GitDTLApp:
                 return
             result = self.run_git(["push"])
             if result.returncode == 0:
+                self.highlight_next_options(["1"])
                 self.show_info(APP_NAME, "Publication réussie.")
             elif self.is_missing_upstream_error(result):
                 branch = self.current_branch()
@@ -1270,6 +1400,7 @@ class GitDTLApp:
                     return
                 upstream = self.run_git(["push", "--set-upstream", "origin", branch])
                 if upstream.returncode == 0:
+                    self.highlight_next_options(["1"])
                     self.show_info(APP_NAME, "Publication réussie.")
                 else:
                     self.show_error_message(APP_NAME, "Erreur détectée.")
@@ -1731,7 +1862,11 @@ class GitDTLApp:
     def show_command_error(self, result: subprocess.CompletedProcess[str]) -> None:
         output = "\n".join(part.strip() for part in [result.stdout, result.stderr] if part.strip())
         self.log_error(output or f"Commande terminée avec le code {result.returncode}")
-        self.show_text_window("Erreur détectée", output or "Erreur détectée.", text_color=COLOR_ERROR)
+        content = output or "Erreur détectée."
+        advice = self.expert_advice(content)
+        if advice:
+            content += "\n\n" + "=" * 72 + "\n\nConseil du système expert :\n\n" + advice
+        self.show_text_window("Erreur détectée", content, text_color=COLOR_ERROR)
 
     def show_error(self, exc: Exception) -> None:
         self.log_error(str(exc))

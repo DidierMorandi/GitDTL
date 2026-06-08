@@ -83,6 +83,8 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 
 **Aide contextuelle.** Chaque boîte de dialogue expose un bouton **? pour Aide** qui affiche une explication de l'opération en cours. Les textes d'aide peuvent être personnalisés via un fichier `aide.md` placé dans le même dossier que le script.
 
+**Système expert.** Les messages Git non prévus par l'interface peuvent être enrichis par des conseils issus de règles placées dans `expert_git.md`.
+
 ---
 
 ## Personnalisation de l'aide
@@ -105,6 +107,23 @@ Les clés disponibles sont : `create_git_repository`, `remove_file_action`, `com
 
 Si le fichier est absent ou si une clé n'est pas définie, le texte d'aide par défaut intégré au script est utilisé.
 
+## Personnalisation du système expert
+
+Créer ou modifier un fichier `expert_git.md` dans le répertoire de GitDTL.
+Chaque règle contient des fragments de messages Git à reconnaître et un conseil à afficher :
+
+```markdown
+## Branche sans upstream
+
+Patterns:
+- has no upstream branch
+- --set-upstream
+
+Advice:
+La branche locale n'est pas encore reliée à sa branche GitHub.
+GitDTL peut corriger ce cas avec git push --set-upstream origin <branche>.
+```
+
 ---
 
 ## Structure du projet
@@ -113,6 +132,7 @@ Si le fichier est absent ou si une clé n'est pas définie, le texte d'aide par 
 gitdtl/
 ├── GitDTL.py       Script principal
 ├── aide.md         Textes d'aide personnalisés (optionnel)
+├── expert_git.md   Règles du système expert (optionnel)
 └── logs/
     └── gitdtl.log  Journal applicatif (créé automatiquement)
 ```
