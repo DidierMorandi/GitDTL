@@ -371,6 +371,7 @@ class GitDTLApp:
             self.help_text("welcome"),
             body_color=COLOR_WELCOME_TEXT,
             show_title_label=False,
+            top_image_path=self.find_app_file("Gitou_small.png"),
         )
         welcome_window.transient(self.root)
         self.center_window(welcome_window)
@@ -415,6 +416,12 @@ class GitDTLApp:
             if text:
                 help_texts[key] = text
         return help_texts
+
+    def find_app_file(self, filename: str) -> Path:
+        path = self.app_dir / filename
+        if not path.exists() and self.app_dir.name.lower() == "dist":
+            path = self.app_dir.parent / filename
+        return path
 
     def help_text(self, key: str) -> str:
         return self.help_texts.get(key, DEFAULT_HELP_TEXTS.get(key, "Aucune aide disponible."))
@@ -1680,6 +1687,7 @@ class GitDTLApp:
         content: str,
         body_color: str = COLOR_DEC_BLUE,
         show_title_label: bool = True,
+        top_image_path: Path | None = None,
     ) -> tk.Toplevel:
         window = self.make_text_window(
             title,
@@ -1701,6 +1709,16 @@ class GitDTLApp:
         text.tag_configure("rule", foreground=COLOR_BORDER_LIGHT, spacing1=4, spacing3=8)
 
         table_rows = []
+
+        if top_image_path is not None and top_image_path.exists():
+            try:
+                image = tk.PhotoImage(file=str(top_image_path))
+                window.markdown_images = getattr(window, "markdown_images", [])
+                window.markdown_images.append(image)
+                text.image_create(tk.END, image=image)
+                text.insert(tk.END, "\n\n")
+            except tk.TclError as exc:
+                self.log_error(f"Impossible d'afficher l'image {top_image_path} : {exc}")
 
         def flush_table() -> None:
             if not table_rows:
