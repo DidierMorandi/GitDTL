@@ -58,6 +58,10 @@ DEFAULT_HELP_TEXTS = {
         "- https://github.com/compte/projet.git\n"
         "- git@github.com:compte/projet.git"
     ),
+    "common_python_ignores": (
+        "Ces dossiers sont produits automatiquement par Python ou par GitDTL.\n\n"
+        "Les ajouter à .gitignore évite qu'ils apparaissent dans les fichiers non suivis."
+    ),
 }
 
 COLOR_BG = "#090d0f"
@@ -380,30 +384,50 @@ class GitDTLApp:
 
         menu_items = tk.Frame(terminal, bg=COLOR_TERMINAL)
         menu_items.place(relx=0.5, rely=0.08, anchor="n")
+        menu_items.grid_columnconfigure(0, minsize=28)
 
         actions = [
-            ("1  État du projet (git status)", self.show_status, False),
-            ("2  Voir les modifications (git diff)", self.show_diff, True),
-            ("3  Ajouter un fichier au projet (git add)", self.add_file, True),
-            ("4  Enregistrer un fichier modifié dans le projet (git add)", self.update_file, True),
-            ("5  Supprimer un fichier du projet (git rm)", self.remove_file, True),
-            ("6  Valider les changements (git commit)", self.commit_changes, True),
-            ("7  Publier le projet sur GitHub (git push)", self.push_to_github, True),
-            ("8  Créer une version (git tag)", self.create_release, True),
-            ("9  Historique des versions (git log)", self.show_history, True),
-            ("10 Synchroniser le projet depuis GitHub (git pull)", self.pull_from_github, True),
-            ("11 Diagnostic GitDTL (git status)", self.show_diagnostic, True),
-            ("12 Lire le journal (log)", self.show_log_window, True),
-            ("", None, False),
-            ("0  Quitter le menu", self.root.destroy, False),
+            ("1", "État du projet (git status)", self.show_status, False),
+            ("2", "Voir les modifications (git diff)", self.show_diff, True),
+            ("3", "Ajouter un fichier au projet (git add)", self.add_file, True),
+            ("4", "Enregistrer un fichier modifié dans le projet (git add)", self.update_file, True),
+            ("5", "Supprimer un fichier du projet (git rm)", self.remove_file, True),
+            ("6", "Valider les changements (git commit)", self.commit_changes, True),
+            ("7", "Publier le projet sur GitHub (git push)", self.push_to_github, True),
+            ("8", "Créer une version (git tag)", self.create_release, True),
+            ("9", "Historique des versions (git log)", self.show_history, True),
+            ("10", "Synchroniser le projet depuis GitHub (git pull)", self.pull_from_github, True),
+            ("11", "Diagnostic GitDTL (git status)", self.show_diagnostic, True),
+            ("12", "Lire le journal (log)", self.show_log_window, True),
+            ("", "", None, False),
+            ("0", "Quitter le menu", self.root.destroy, False),
         ]
 
-        for index, (label, command, needs_git) in enumerate(actions):
+        for index, (number, label, command, needs_git) in enumerate(actions):
             if command is None:
-                tk.Label(menu_items, text="", bg=COLOR_TERMINAL, font=FONT_MENU).grid(row=index, column=0, sticky="w", pady=(6, 2))
+                tk.Label(menu_items, text="", bg=COLOR_TERMINAL, font=FONT_MENU).grid(row=index, column=0, columnspan=2, sticky="w", pady=(6, 2))
                 continue
             button_command = self.with_git_repository(command) if needs_git else command
-            button = tk.Button(
+            number_button = tk.Button(
+                menu_items,
+                text=number,
+                command=button_command,
+                anchor="e",
+                bg=COLOR_TERMINAL,
+                fg=COLOR_TEXT,
+                activebackground=COLOR_TERMINAL,
+                activeforeground=COLOR_BLUE,
+                borderwidth=0,
+                highlightthickness=0,
+                relief="flat",
+                cursor="hand2",
+                font=FONT_MENU,
+                padx=0,
+                pady=0,
+                width=2,
+            )
+            number_button.grid(row=index, column=0, sticky="e", padx=(0, 8))
+            label_button = tk.Button(
                 menu_items,
                 text=label,
                 command=button_command,
@@ -420,7 +444,7 @@ class GitDTLApp:
                 padx=0,
                 pady=0,
             )
-            button.grid(row=index, column=0, sticky="w")
+            label_button.grid(row=index, column=1, sticky="w")
 
         footer = tk.Label(
             shell,
@@ -877,8 +901,56 @@ class GitDTLApp:
                     + "\n".join(f"- {filename}" for filename in blocking_files)
                 )
             self.show_text_window("État du projet", content)
+            self.offer_common_python_ignores()
         except Exception as exc:
             self.show_error(exc)
+
+    def offer_common_python_ignores(self) -> None:
+        common_dirs = self.common_untracked_python_dirs()
+        if not common_dirs:
+            return
+
+        dir_list = "\n".join(f"□ {dirname}" for dirname in common_dirs)
+        selected = self.ask_choice(
+            "Dossiers à ignorer",
+            "Les dossiers suivants sont généralement\n"
+            "ignorés dans les projets Python :\n\n"
+            f"{dir_list}\n\n"
+            "Les ajouter à .gitignore ?",
+            [("Les ajouter à .gitignore", "add"), ("Annuler", None)],
+            self.help_text("common_python_ignores"),
+            kind="warning",
+        )
+        if selected != "add":
+            return
+
+        self.add_to_gitignore(common_dirs)
+        self.show_info(APP_NAME, "Dossier(s) ajouté(s) à .gitignore.")
+
+    def common_untracked_python_dirs(self) -> list[str]:
+        common_dirs = ["__pycache__/", "logs/"]
+        untracked = {
+            line[3:]
+            for line in self.get_porcelain_status()
+            if line.startswith("??")
+        }
+        missing_patterns = set(self.missing_gitignore_patterns(common_dirs))
+        return [
+            dirname
+            for dirname in common_dirs
+            if dirname in untracked and f"/{dirname}" in missing_patterns
+        ]
+
+    def missing_gitignore_patterns(self, filenames: list[str]) -> list[str]:
+        gitignore = self.project_dir / ".gitignore"
+        if gitignore.exists():
+            lines = gitignore.read_text(encoding="utf-8", errors="replace").splitlines()
+        else:
+            lines = []
+
+        existing = set(lines)
+        patterns = [f"/{filename}" for filename in filenames]
+        return [pattern for pattern in patterns if pattern not in existing]
 
     def show_diff(self) -> None:
         try:

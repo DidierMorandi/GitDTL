@@ -66,3 +66,9 @@ Créez d'abord un dépôt vide sur GitHub, puis copiez son URL.
 Exemples :
 - https://github.com/compte/projet.git
 - git@github.com:compte/projet.git
+
+## common_python_ignores
+
+Ces dossiers sont produits automatiquement par Python ou par GitDTL.
+
+Les ajouter à .gitignore évite qu'ils apparaissent dans les fichiers non suivis.
