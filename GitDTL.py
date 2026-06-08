@@ -308,6 +308,7 @@ class GitDTLApp:
         self.help_texts = self.load_help_texts()
         self.expert_rules = self.load_expert_rules()
         self.menu_buttons = {}
+        self.highlighted_options = set()
 
         self.root.title(f"{APP_NAME} {APP_VERSION}")
         self.root.geometry("920x760")
@@ -554,7 +555,7 @@ class GitDTLApp:
             if command is None:
                 tk.Label(menu_items, text="", bg=COLOR_TERMINAL, font=FONT_MENU).grid(row=index, column=0, columnspan=2, sticky="w", pady=(6, 2))
                 continue
-            button_command = self.with_git_repository(command) if needs_git else command
+            button_command = self.menu_command(number, command, needs_git)
             number_button = tk.Button(
                 menu_items,
                 text=number,
@@ -604,11 +605,27 @@ class GitDTLApp:
         footer.pack(anchor="w", pady=(18, 0))
 
     def highlight_next_options(self, option_numbers: list[str]) -> None:
-        selected = set(option_numbers)
+        self.highlighted_options = set(option_numbers)
         for number, buttons in self.menu_buttons.items():
-            color = COLOR_WARNING if number in selected else COLOR_TEXT
+            color = COLOR_WARNING if number in self.highlighted_options else COLOR_TEXT
             for button in buttons:
                 button.configure(fg=color)
+
+    def clear_highlighted_option(self, option_number: str) -> None:
+        if option_number not in self.highlighted_options:
+            return
+        self.highlighted_options.discard(option_number)
+        for button in self.menu_buttons.get(option_number, ()):
+            button.configure(fg=COLOR_TEXT)
+
+    def menu_command(self, option_number: str, command, needs_git: bool):
+        action = self.with_git_repository(command) if needs_git else command
+
+        def wrapped_menu_command() -> None:
+            self.clear_highlighted_option(option_number)
+            action()
+
+        return wrapped_menu_command
 
     def with_git_repository(self, command):
         def wrapped_command() -> None:
