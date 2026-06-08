@@ -7,18 +7,30 @@ Ne changez pas les titres `## create_git_repository`, `## remove_file_action`, e
 
 # Bienvenue dans GitDTL
 
-GitDTL vous accompagne dans les opérations Git courantes sans passer par la ligne de commande.
+Bonjour, je suis Gitou, je vais vous accompagner dans votre utilisation de GitDTL qui permet une gestion de projets facile sans devoir utiliser des instructions obscures dans une fenêtre de commande.
 
 Pour démarrer :
-- choisissez ou vérifiez le dossier du projet courant ;
-- utilisez l'option 1 pour connaître l'état du projet ;
-- suivez les options mises en surbrillance ambre pour avancer dans le bon ordre.
+
+- choisissez ou vérifiez le dossier de votre projet
+- utilisez systématiquement l'option 1 pour connaître l'état "Git" de votre projet
+- suivez les options mises en surbrillance ambre pour avancer dans un ordre logique.
+
+Et n'hésitez pas à consulter ma documentation via le choix 14 du menu.
 
 Cet écran de bienvenue ne s'affiche qu'à la première utilisation.
+(pour le faire réapparaître, effacez le cookie ".gitdtl_welcome_seen" dans le répertoire de GitDTL)
+
+## first_project_choice
+
+GitDTL doit savoir quel dossier vous voulez gérer.
+
+Choisissez 'Créer un nouveau projet' pour sélectionner ou créer un dossier, puis initialiser Git.
+
+Choisissez 'Gérer un projet existant' pour sélectionner un dossier déjà présent sur votre ordinateur.
 
 ## create_git_repository
 
-Un projet Git permet de suivre un historique de la gestion de ses fichiers. L'utilitaire Git permet aussi de déposer un projet sur le site GitHub.
+Un projet Git permet de suivre un historique de la gestion de ses fichiers. L'utilitaire Git permet aussi de déposer un projet sur le site Web GitHub.
 
 Choisissez 'Créer le projet Git' pour lancer une commande 'git init' dans le dossier courant.
 Choisissez 'Annuler' pour revenir au menu sans créer de dépôt.

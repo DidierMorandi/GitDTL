@@ -23,6 +23,11 @@ DEFAULT_HELP_TEXTS = {
         "GitDTL vous accompagne dans les opérations Git courantes sans passer par la ligne de commande.\n\n"
         "Commencez par choisir un dossier de projet, puis utilisez le menu numéroté."
     ),
+    "first_project_choice": (
+        "GitDTL doit savoir quel dossier vous voulez gérer.\n\n"
+        "Choisissez 'Créer un nouveau projet' pour sélectionner ou créer un dossier, puis initialiser Git.\n"
+        "Choisissez 'Gérer un projet existant' pour sélectionner un dossier déjà présent sur votre ordinateur."
+    ),
     "create_git_repository": (
         "Un projet Git permet de suivre l'historique des fichiers.\n\n"
         "Choisissez 'Créer le projet Git' pour lancer git init dans le dossier courant.\n"
@@ -134,6 +139,7 @@ COLOR_BG = "#090d0f"
 COLOR_PANEL = "#12171b"
 COLOR_TERMINAL = "#070b0d"
 COLOR_TEXT = "#00ff2f"
+COLOR_WELCOME_TEXT = "#00ff00"
 COLOR_MUTED = "#9aa0a6"
 COLOR_BLUE = "#2f8cff"
 COLOR_DEC_BLUE = "#00a0e3"
@@ -313,11 +319,13 @@ class GitDTLApp:
         self.log_file = self.log_dir / "gitdtl.log"
         self.help_texts = self.load_help_texts()
         self.expert_rules = self.load_expert_rules()
+        self.project_selected = True
         self.menu_buttons = {}
         self.highlighted_options = set()
 
         self.root.title(f"{APP_NAME} {APP_VERSION}")
         self.root.geometry("920x760")
+        self.root.state("zoomed")
         self.root.minsize(760, 620)
         self.root.configure(bg=COLOR_BG)
 
@@ -326,7 +334,7 @@ class GitDTLApp:
         self._ensure_log()
         self.log_info(f"Projet ouvert : {self.project_dir}")
         self.update_project_label()
-        self.show_welcome_if_first_use()
+        self.root.after(300, self.show_welcome_if_first_use)
 
     def detect_app_dir(self) -> Path:
         if getattr(sys, "frozen", False):
@@ -348,14 +356,26 @@ class GitDTLApp:
         )
 
     def welcome_cookie_path(self) -> Path:
-        return self.project_dir / WELCOME_COOKIE
+        if self.app_dir.name.lower() == "dist":
+            return self.app_dir.parent / WELCOME_COOKIE
+        return self.app_dir / WELCOME_COOKIE
 
     def show_welcome_if_first_use(self) -> None:
         cookie_path = self.welcome_cookie_path()
         if cookie_path.exists():
             return
 
-        self.show_markdown_window("Bienvenue dans GitDTL", self.help_text("welcome"))
+        self.clear_current_project()
+        welcome_window = self.show_markdown_window(
+            "Bienvenue dans GitDTL",
+            self.help_text("welcome"),
+            body_color=COLOR_WELCOME_TEXT,
+            show_title_label=False,
+        )
+        welcome_window.transient(self.root)
+        self.center_window(welcome_window)
+        welcome_window.grab_set()
+        self.root.wait_window(welcome_window)
         try:
             cookie_path.write_text(
                 f"{APP_NAME} {APP_VERSION}\n{_dt.datetime.now().isoformat(timespec='seconds')}\n",
@@ -363,6 +383,7 @@ class GitDTLApp:
             )
         except OSError as exc:
             self.log_error(f"Impossible d'écrire le cookie de bienvenue : {exc}")
+        self.prompt_project_to_manage()
 
     def load_help_texts(self) -> dict[str, str]:
         help_texts = DEFAULT_HELP_TEXTS.copy()
@@ -925,18 +946,54 @@ class GitDTLApp:
         return answer["value"]
 
     def update_project_label(self) -> None:
+        if not self.project_selected:
+            self.project_label.config(text="Projet courant :\nAucun projet sélectionné")
+            return
         self.project_label.config(text=f"Projet courant :\n{self.project_dir}")
+
+    def clear_current_project(self) -> None:
+        self.project_selected = False
+        self.update_project_label()
+
+    def set_project_dir(self, selected: str | Path, write_log: bool = True) -> None:
+        self.project_dir = Path(selected).resolve()
+        self.log_dir = self.project_dir / "logs"
+        self.log_file = self.log_dir / "gitdtl.log"
+        self.project_selected = True
+        self._ensure_log()
+        if write_log:
+            self.log_info(f"Projet ouvert : {self.project_dir}")
+        self.update_project_label()
 
     def choose_project(self) -> None:
         selected = filedialog.askdirectory(title="Choisir le projet Git")
         if not selected:
             return
-        self.project_dir = Path(selected)
-        self.log_dir = self.project_dir / "logs"
-        self.log_file = self.log_dir / "gitdtl.log"
-        self._ensure_log()
-        self.log_info(f"Projet ouvert : {self.project_dir}")
-        self.update_project_label()
+        self.set_project_dir(selected)
+
+    def prompt_project_to_manage(self) -> bool:
+        choice = self.ask_choice(
+            APP_NAME,
+            "Quel projet voulez-vous gérer ?",
+            [
+                ("Créer un nouveau projet", "new"),
+                ("Gérer un projet existant", "existing"),
+                ("Annuler", None),
+            ],
+            self.help_text("first_project_choice"),
+        )
+        if choice is None:
+            return False
+
+        title = "Choisir ou créer le dossier du nouveau projet" if choice == "new" else "Choisir le projet existant"
+        selected = filedialog.askdirectory(title=title, initialdir=self.app_dir.parent if self.app_dir.name.lower() == "dist" else self.app_dir)
+        if not selected:
+            return False
+
+        self.set_project_dir(selected)
+        if choice == "new":
+            return self.ensure_git_repository(offer_project_choice=False)
+        return True
 
     def _ensure_log(self) -> None:
         self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -985,7 +1042,12 @@ class GitDTLApp:
         result = self.run_git(["rev-parse", "--is-inside-work-tree"])
         return result.returncode == 0 and result.stdout.strip().lower() == "true"
 
-    def ensure_git_repository(self) -> bool:
+    def ensure_git_repository(self, offer_project_choice: bool = True) -> bool:
+        if not self.project_selected:
+            if offer_project_choice and self.prompt_project_to_manage():
+                return self.ensure_git_repository(offer_project_choice=False)
+            return False
+
         if self.is_git_repository():
             return True
 
@@ -1608,16 +1670,28 @@ class GitDTLApp:
         content = readme_path.read_text(encoding="utf-8", errors="replace")
         self.show_markdown_window("Documentation - README.md", content or "README.md est vide.")
 
-    def show_markdown_window(self, title: str, content: str) -> None:
-        window = self.make_text_window(title, width=980, height=680, text_color=COLOR_DEC_BLUE)
+    def show_markdown_window(
+        self,
+        title: str,
+        content: str,
+        body_color: str = COLOR_DEC_BLUE,
+        show_title_label: bool = True,
+    ) -> tk.Toplevel:
+        window = self.make_text_window(
+            title,
+            width=980,
+            height=680,
+            text_color=COLOR_DEC_BLUE,
+            show_title_label=show_title_label,
+        )
         text = window.text_widget
         text.configure(wrap="word")
         text.tag_configure("h1", foreground=COLOR_BLUE, font=("Courier New", 18, "bold"), spacing1=8, spacing3=10)
         text.tag_configure("h2", foreground=COLOR_TEXT, font=("Courier New", 14, "bold"), spacing1=8, spacing3=8)
         text.tag_configure("h3", foreground=COLOR_DEC_BLUE, font=("Courier New", 12, "bold"), spacing1=6, spacing3=6)
-        text.tag_configure("paragraph", foreground=COLOR_DEC_BLUE, spacing3=5)
+        text.tag_configure("paragraph", foreground=body_color, spacing3=5)
         text.tag_configure("strong", foreground=COLOR_TEXT, font=("Courier New", 10, "bold"), spacing3=5)
-        text.tag_configure("list", foreground=COLOR_DEC_BLUE, lmargin1=28, lmargin2=44, spacing2=2)
+        text.tag_configure("list", foreground=body_color, lmargin1=28, lmargin2=44, spacing2=2)
         text.tag_configure("code", foreground=COLOR_WARNING, background=COLOR_PANEL, font=("Courier New", 10), lmargin1=18, lmargin2=18)
         text.tag_configure("table", foreground=COLOR_WARNING, font=("Courier New", 10), spacing2=1)
         text.tag_configure("rule", foreground=COLOR_BORDER_LIGHT, spacing1=4, spacing3=8)
@@ -1704,6 +1778,7 @@ class GitDTLApp:
 
         flush_table()
         text.config(state="disabled")
+        return window
 
     def clean_inline_markdown(self, value: str) -> str:
         return value.replace("**", "").replace("`", "")
@@ -1846,25 +1921,36 @@ class GitDTLApp:
             return []
         return filenames
 
-    def make_text_window(self, title: str, width: int = 860, height: int = 560, text_color: str = COLOR_TEXT):
+    def make_text_window(
+        self,
+        title: str,
+        width: int = 860,
+        height: int = 560,
+        text_color: str = COLOR_TEXT,
+        show_title_label: bool = True,
+    ):
         window = tk.Toplevel(self.root)
         window.title(title)
         window.geometry(f"{width}x{height}")
         window.configure(bg=COLOR_BG)
 
-        title_label = tk.Label(
-            window,
-            text=title,
-            bg=COLOR_BG,
-            fg=text_color,
-            font=FONT_MONO,
-            padx=16,
-            pady=14,
-        )
-        title_label.pack(anchor="w")
+        if show_title_label:
+            title_label = tk.Label(
+                window,
+                text=title,
+                bg=COLOR_BG,
+                fg=text_color,
+                font=FONT_MONO,
+                padx=16,
+                pady=14,
+            )
+            title_label.pack(anchor="w")
+            frame_pady = (0, 16)
+        else:
+            frame_pady = (16, 16)
 
         frame = tk.Frame(window, bg=COLOR_PANEL, padx=16, pady=16, highlightthickness=1, highlightbackground=COLOR_BORDER)
-        frame.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+        frame.pack(fill="both", expand=True, padx=16, pady=frame_pady)
 
         scrollbar = tk.Scrollbar(frame)
         scrollbar.pack(side="right", fill="y")
