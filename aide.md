@@ -12,9 +12,9 @@ Choisissez 'Annuler' pour revenir au menu sans créer de dépôt.
 
 ## remove_file_action
 
-Le premier choix supprime le fichier du disque et de l'environnement Git.
+Le premier choix supprime l'élément du disque et de l'environnement Git.
 
-Le deuxième choix conserve le fichier dans le dossier, le retire seulement du suivi Git et l'ajoute dans un fichier spécial .gitignore pour qu'il ne soit plus pris en compte par Git.
+Le deuxième choix conserve l'élément dans le dossier, le retire seulement du suivi Git et l'ajoute dans un fichier spécial .gitignore pour qu'il ne soit plus pris en compte par Git.
 
 Annuler ne modifie rien.
 

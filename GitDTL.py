@@ -4,6 +4,7 @@ import datetime as _dt
 import os
 import shutil
 import subprocess
+import webbrowser
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, ttk
@@ -20,8 +21,8 @@ DEFAULT_HELP_TEXTS = {
         "Choisissez 'Annuler' pour revenir au menu sans créer de dépôt."
     ),
     "remove_file_action": (
-        "Le premier choix supprime le fichier du disque et de Git.\n\n"
-        "Le deuxième choix conserve le fichier dans le dossier, le retire seulement du suivi Git "
+        "Le premier choix supprime l'élément du disque et de Git.\n\n"
+        "Le deuxième choix conserve l'élément dans le dossier, le retire seulement du suivi Git "
         "et l'ajoute dans .gitignore pour qu'il ne soit plus proposé ensuite.\n\n"
         "Annuler ne modifie rien."
     ),
@@ -391,7 +392,7 @@ class GitDTLApp:
             ("2", "Voir les modifications (git diff)", self.show_diff, True),
             ("3", "Ajouter un fichier au projet (git add)", self.add_file, True),
             ("4", "Enregistrer un fichier modifié dans le projet (git add)", self.update_file, True),
-            ("5", "Supprimer un fichier du projet (git rm)", self.remove_file, True),
+            ("5", "Supprimer un fichier ou un dossier (git rm)", self.remove_file, True),
             ("6", "Valider les changements (git commit)", self.commit_changes, True),
             ("7", "Publier le projet sur GitHub (git push)", self.push_to_github, True),
             ("8", "Créer une version (git tag)", self.create_release, True),
@@ -399,6 +400,8 @@ class GitDTLApp:
             ("10", "Synchroniser le projet depuis GitHub (git pull)", self.pull_from_github, True),
             ("11", "Diagnostic GitDTL (git status)", self.show_diagnostic, True),
             ("12", "Lire le journal (log)", self.show_log_window, True),
+            ("13", "Visualiser le projet sur GitHub", self.open_project_on_github, True),
+            ("14", "Documentation (README.md)", self.show_documentation, False),
             ("", "", None, False),
             ("0", "Quitter le menu", self.root.destroy, False),
         ]
@@ -1035,35 +1038,107 @@ class GitDTLApp:
         return statuses
 
     def remove_file(self) -> None:
-        filenames = self.ask_project_files("Choisir les fichiers à supprimer du projet")
-        if not filenames:
+        targets = self.ask_project_removal_targets()
+        if not targets:
             return
         removal_action = self.ask_removal_action()
         if removal_action is None:
             return
         try:
+            tracked_targets = [target for target in targets if self.has_tracked_content(target)]
+            untracked_targets = [target for target in targets if target not in tracked_targets]
+
             if removal_action == "delete":
-                result = self.run_git(["rm", "-f", "--", *filenames])
+                if tracked_targets:
+                    result = self.run_git(["rm", "-r", "-f", "--", *tracked_targets])
+                    if result.returncode != 0:
+                        self.show_command_error(result)
+                        return
+                self.delete_untracked_targets(untracked_targets)
+                self.show_info(APP_NAME, "Élément(s) supprimé(s) du dépôt et du dossier.")
             else:
-                result = self.run_git(["rm", "-f", "--cached", "--", *filenames])
-            if result.returncode == 0:
-                if removal_action == "delete":
-                    self.show_info(APP_NAME, "Fichier(s) supprimé(s) du dépôt et du dossier.")
-                else:
-                    self.add_to_gitignore(filenames)
-                    self.show_info(APP_NAME, "Fichier(s) retiré(s) du dépôt et ajouté(s) dans .gitignore.")
-            else:
-                self.show_command_error(result)
+                if tracked_targets:
+                    result = self.run_git(["rm", "-r", "-f", "--cached", "--", *tracked_targets])
+                    if result.returncode != 0:
+                        self.show_command_error(result)
+                        return
+                self.add_to_gitignore(targets)
+                self.show_info(APP_NAME, "Élément(s) retiré(s) du dépôt et ajouté(s) dans .gitignore.")
         except Exception as exc:
             self.show_error(exc)
+
+    def ask_project_removal_targets(self) -> list[str]:
+        target_type = self.ask_choice(
+            "Sélection",
+            "Que voulez-vous sélectionner ?",
+            [
+                ("Un ou plusieurs fichiers", "files"),
+                ("Un dossier entier", "folder"),
+                ("Annuler", None),
+            ],
+            self.help_text("remove_file_action"),
+        )
+        if target_type == "files":
+            return self.ask_project_files("Choisir les fichiers à supprimer du projet")
+        if target_type == "folder":
+            folder = filedialog.askdirectory(
+                title="Choisir le dossier à supprimer du projet",
+                initialdir=self.project_dir,
+                mustexist=True,
+            )
+            if not folder:
+                return []
+            return self.project_relative_path(folder, require_inside=True, as_directory=True)
+        return []
+
+    def project_relative_path(self, selected: str, require_inside: bool = True, as_directory: bool = False) -> list[str]:
+        project_dir = self.project_dir.resolve()
+        selected_path = Path(selected).resolve()
+        try:
+            relative_path = selected_path.relative_to(project_dir)
+        except ValueError:
+            if require_inside:
+                self.show_error_message(
+                    APP_NAME,
+                    "L'élément choisi doit se trouver dans le dossier du projet courant.",
+                )
+                return []
+            raise
+
+        if relative_path == Path("."):
+            self.show_error_message(APP_NAME, "Le dossier du projet lui-même ne peut pas être sélectionné.")
+            return []
+
+        value = relative_path.as_posix()
+        if as_directory and not value.endswith("/"):
+            value += "/"
+        return [value]
+
+    def has_tracked_content(self, target: str) -> bool:
+        result = self.run_git(["ls-files", "--", target])
+        return result.returncode == 0 and bool(result.stdout.strip())
+
+    def delete_untracked_targets(self, targets: list[str]) -> None:
+        project_dir = self.project_dir.resolve()
+        for target in targets:
+            target_path = (project_dir / target.rstrip("/")).resolve()
+            try:
+                target_path.relative_to(project_dir)
+            except ValueError:
+                raise RuntimeError(f"Chemin hors projet refuse : {target}")
+
+            if target_path.is_dir():
+                shutil.rmtree(target_path)
+            elif target_path.exists():
+                target_path.unlink()
 
     def ask_removal_action(self) -> str | None:
         return self.ask_choice(
             "ATTENTION",
             "Que voulez-vous faire  ?",
             [
-                ("Retirer le fichier du projet et le supprimer du dossier", "delete"),
-                ("Retirer le fichier du projet mais le conserver dans le dossier", "keep"),
+                ("Retirer l'élément du projet et le supprimer du dossier", "delete"),
+                ("Retirer l'élément du projet mais le conserver dans le dossier", "keep"),
                 ("Annuler", None),
             ],
             self.help_text("remove_file_action"),
@@ -1249,6 +1324,147 @@ class GitDTLApp:
         except Exception as exc:
             self.show_error(exc)
 
+    def open_project_on_github(self) -> None:
+        try:
+            result = self.run_git(["remote", "get-url", "origin"])
+            if result.returncode != 0 or not result.stdout.strip():
+                self.show_warning(APP_NAME, "Aucune adresse GitHub n'est configurée pour ce projet.")
+                return
+
+            github_url = self.github_web_url(result.stdout.strip())
+            if github_url is None:
+                self.show_warning(
+                    APP_NAME,
+                    "L'adresse configurée ne semble pas être une adresse GitHub valide :\n\n"
+                    f"{result.stdout.strip()}",
+                )
+                return
+
+            webbrowser.open(github_url)
+        except Exception as exc:
+            self.show_error(exc)
+
+    def github_web_url(self, remote_url: str) -> str | None:
+        remote_url = remote_url.strip()
+        if remote_url.startswith("git@github.com:"):
+            path = remote_url.removeprefix("git@github.com:")
+            return "https://github.com/" + path.removesuffix(".git")
+        if remote_url.startswith("ssh://git@github.com/"):
+            path = remote_url.removeprefix("ssh://git@github.com/")
+            return "https://github.com/" + path.removesuffix(".git")
+        if remote_url.startswith("https://github.com/") or remote_url.startswith("http://github.com/"):
+            return remote_url.removesuffix(".git")
+        return None
+
+    def show_documentation(self) -> None:
+        readme_path = self.project_dir / "README.md"
+        if not readme_path.exists():
+            self.show_warning(APP_NAME, f"README.md introuvable dans :\n\n{self.project_dir}")
+            return
+
+        content = readme_path.read_text(encoding="utf-8", errors="replace")
+        self.show_markdown_window("Documentation - README.md", content or "README.md est vide.")
+
+    def show_markdown_window(self, title: str, content: str) -> None:
+        window = self.make_text_window(title, width=980, height=680, text_color=COLOR_DEC_BLUE)
+        text = window.text_widget
+        text.configure(wrap="word")
+        text.tag_configure("h1", foreground=COLOR_BLUE, font=("Courier New", 18, "bold"), spacing1=8, spacing3=10)
+        text.tag_configure("h2", foreground=COLOR_TEXT, font=("Courier New", 14, "bold"), spacing1=8, spacing3=8)
+        text.tag_configure("h3", foreground=COLOR_DEC_BLUE, font=("Courier New", 12, "bold"), spacing1=6, spacing3=6)
+        text.tag_configure("paragraph", foreground=COLOR_DEC_BLUE, spacing3=5)
+        text.tag_configure("strong", foreground=COLOR_TEXT, font=("Courier New", 10, "bold"), spacing3=5)
+        text.tag_configure("list", foreground=COLOR_DEC_BLUE, lmargin1=28, lmargin2=44, spacing2=2)
+        text.tag_configure("code", foreground=COLOR_WARNING, background=COLOR_PANEL, font=("Courier New", 10), lmargin1=18, lmargin2=18)
+        text.tag_configure("table", foreground=COLOR_WARNING, font=("Courier New", 10), spacing2=1)
+        text.tag_configure("rule", foreground=COLOR_BORDER_LIGHT, spacing1=4, spacing3=8)
+
+        table_rows = []
+
+        def flush_table() -> None:
+            if not table_rows:
+                return
+
+            widths = [
+                max(len(row[index]) for row in table_rows)
+                for index in range(max(len(row) for row in table_rows))
+            ]
+            for row_index, row in enumerate(table_rows):
+                padded_cells = [
+                    row[index].ljust(widths[index])
+                    for index in range(len(row))
+                ]
+                text.insert(tk.END, "  ".join(padded_cells) + "\n", "table")
+                if row_index == 0 and len(table_rows) > 1:
+                    text.insert(tk.END, "  ".join("-" * width for width in widths) + "\n", "table")
+            text.insert(tk.END, "\n")
+            table_rows.clear()
+
+        in_code = False
+        for raw_line in content.splitlines():
+            line = raw_line.rstrip()
+            stripped = line.strip()
+
+            if stripped.startswith("```"):
+                flush_table()
+                in_code = not in_code
+                continue
+
+            if in_code:
+                text.insert(tk.END, line + "\n", "code")
+                continue
+
+            if not stripped:
+                flush_table()
+                text.insert(tk.END, "\n")
+                continue
+
+            if stripped in {"---", "***", "___"}:
+                flush_table()
+                text.insert(tk.END, "─" * 72 + "\n", "rule")
+                continue
+
+            if stripped.startswith("# "):
+                flush_table()
+                text.insert(tk.END, stripped[2:] + "\n", "h1")
+                continue
+            if stripped.startswith("## "):
+                flush_table()
+                text.insert(tk.END, stripped[3:] + "\n", "h2")
+                continue
+            if stripped.startswith("### "):
+                flush_table()
+                text.insert(tk.END, stripped[4:] + "\n", "h3")
+                continue
+
+            if stripped.startswith("- "):
+                flush_table()
+                text.insert(tk.END, "• " + self.clean_inline_markdown(stripped[2:]) + "\n", "list")
+                continue
+
+            if stripped.startswith("|"):
+                if set(stripped.replace("|", "").replace("-", "").replace(":", "").strip()) == set():
+                    continue
+                table_rows.append([
+                    self.clean_inline_markdown(cell.strip())
+                    for cell in stripped.strip("|").split("|")
+                ])
+                continue
+
+            if stripped.startswith("**") and stripped.endswith("**") and len(stripped) > 4:
+                flush_table()
+                text.insert(tk.END, self.clean_inline_markdown(stripped) + "\n", "strong")
+                continue
+
+            flush_table()
+            text.insert(tk.END, self.clean_inline_markdown(stripped) + "\n", "paragraph")
+
+        flush_table()
+        text.config(state="disabled")
+
+    def clean_inline_markdown(self, value: str) -> str:
+        return value.replace("**", "").replace("`", "")
+
     def show_diagnostic(self) -> None:
         try:
             status = self.run_git(["status", "--porcelain"])
@@ -1295,6 +1511,7 @@ class GitDTLApp:
             text.config(state="normal")
             text.delete("1.0", tk.END)
             text.insert("1.0", content)
+            text.see("end")
             text.config(state="disabled")
 
         def clear_log() -> None:
