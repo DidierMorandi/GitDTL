@@ -63,6 +63,10 @@ DEFAULT_HELP_TEXTS = {
         "Ces dossiers sont produits automatiquement par Python ou par GitDTL.\n\n"
         "Les ajouter à .gitignore évite qu'ils apparaissent dans les fichiers non suivis."
     ),
+    "stage_modified_files": (
+        "Cette action lance git add sur les fichiers modifiés déjà connus de Git.\n\n"
+        "Elle prépare ces changements pour la prochaine validation."
+    ),
 }
 
 COLOR_BG = "#090d0f"
@@ -995,8 +999,19 @@ class GitDTLApp:
         self.git_add_files(new_files, "Fichier(s) ajouté(s) avec succès.")
 
     def update_file(self) -> None:
-        filenames = self.ask_project_files("Choisir les fichiers à mettre à jour")
+        filenames = self.unstaged_tracked_changes()
         if not filenames:
+            self.show_info(APP_NAME, "Aucun fichier modifié à enregistrer.")
+            return
+        confirmed = self.ask_choice(
+            "Enregistrer les modifications",
+            "GitDTL a détecté les fichiers modifiés suivants :\n\n"
+            + "\n".join(f"- {filename}" for filename in filenames)
+            + "\n\nLes enregistrer dans le projet ?",
+            [("Enregistrer", True), ("Annuler", False)],
+            self.help_text("stage_modified_files"),
+        )
+        if not confirmed:
             return
         self.git_add_files(filenames, "Modification(s) enregistrée(s).")
 
@@ -1022,6 +1037,28 @@ class GitDTLApp:
                 ignored_files.append(filename)
 
         return new_files, ignored_files
+
+    def unstaged_tracked_changes(self) -> list[str]:
+        result = self.run_git(["status", "--porcelain"])
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Impossible de lire l'état Git.")
+
+        filenames = []
+        seen = set()
+        for line in result.stdout.splitlines():
+            if not line.strip() or line.startswith("??"):
+                continue
+            unstaged = line[1]
+            if unstaged == " ":
+                continue
+
+            filename = line[3:]
+            if " -> " in filename:
+                filename = filename.split(" -> ", 1)[1]
+            if filename not in seen:
+                filenames.append(filename)
+                seen.add(filename)
+        return filenames
 
     def get_status_by_file(self) -> dict[str, str]:
         result = self.run_git(["status", "--porcelain", "--untracked-files=all"])

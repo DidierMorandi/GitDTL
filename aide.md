@@ -72,3 +72,9 @@ Exemples :
 Ces dossiers sont produits automatiquement par Python ou par GitDTL.
 
 Les ajouter à .gitignore évite qu'ils apparaissent dans les fichiers non suivis.
+
+## stage_modified_files
+
+Cette action lance git add sur les fichiers modifiés déjà connus de Git.
+
+Elle prépare ces changements pour la prochaine validation.
