@@ -1668,7 +1668,11 @@ class GitDTLApp:
             return
 
         content = readme_path.read_text(encoding="utf-8", errors="replace")
-        self.show_markdown_window("Documentation - README.md", content or "README.md est vide.")
+        self.show_markdown_window(
+            "Documentation - README.md",
+            content or "README.md est vide.",
+            body_color=COLOR_WELCOME_TEXT,
+        )
 
     def show_markdown_window(
         self,
