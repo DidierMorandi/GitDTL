@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitDTL v1.0.0 Stable - Manuel utilisateur</title>
+  <style>
+    :root {
+      --bg: #0b0d0f;
+      --panel: #131619;
+      --panel-alt: #1a1e23;
+      --text: #e8eaed;
+      --muted: #7a8290;
+      --blue: #4e9eff;
+      --border: rgba(255,255,255,0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+      line-height: 1.6;
+    }
+
+    header,
+    main {
+      width: min(1080px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    header {
+      padding: 48px 0 24px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 1.15rem;
+    }
+
+    section {
+      margin: 18px 0;
+      padding: 22px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.25rem;
+    }
+
+    code,
+    pre {
+      background: var(--panel-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    code {
+      padding: 2px 6px;
+    }
+
+    pre {
+      overflow: auto;
+      padding: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      color: var(--bg);
+      background: var(--blue);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    ul {
+      padding-left: 1.2rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="badge">v1.0.0 Stable</span>
+    <h1>GitDTL</h1>
+    <p class="subtitle">Git simplifié pour les projets DTL</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Principe</h2>
+      <p>GitDTL est conçu pour les administrateurs système débutants. L'application évite le jargon Git et présente les opérations sous forme d'actions simples : ajouter, modifier, supprimer, valider, publier et créer une version stable.</p>
+      <p class="muted">Devise : "Git pour l'administrateur système débutant."</p>
+    </section>
+
+    <section>
+      <h2>Lancer GitDTL</h2>
+      <p>Placez-vous dans le dossier du projet Git, puis lancez :</p>
+      <pre>python GitDTL.py</pre>
+      <p>Le bouton <strong>Changer de projet</strong> permet de choisir un autre dossier.</p>
+    </section>
+
+    <section>
+      <h2>Menu principal</h2>
+      <ul>
+        <li><strong>État du projet</strong> : affiche les fichiers modifiés, les fichiers non suivis et si le projet est prêt à publier.</li>
+        <li><strong>Voir les modifications</strong> : affiche les différences détectées par Git.</li>
+        <li><strong>Ajouter un fichier</strong> : ajoute un nouveau fichier au prochain enregistrement Git.</li>
+        <li><strong>Mettre à jour un fichier</strong> : enregistre une modification pour la prochaine validation.</li>
+        <li><strong>Supprimer un fichier</strong> : supprime un fichier du dépôt après confirmation.</li>
+        <li><strong>Valider les changements</strong> : cree une validation avec une description.</li>
+        <li><strong>Publier sur GitHub</strong> : publie le travail après vérification de l'état du projet.</li>
+        <li><strong>Créer une release stable</strong> : crée une validation, une étiquette de version et publie la version.</li>
+        <li><strong>Historique</strong> : affiche les 30 dernières validations.</li>
+        <li><strong>Synchroniser depuis GitHub</strong> : récupère les changements distants.</li>
+        <li><strong>Diagnostic GitDTL</strong> : produit un rapport lisible du depot.</li>
+        <li><strong>Lire le journal</strong> : affiche la boite noire de GitDTL.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Securite</h2>
+      <p>GitDTL demande une confirmation avant toute suppression et avant la création d'une version stable. Avant chaque publication, il vérifie l'état du projet et avertit si des fichiers ne sont pas encore validés.</p>
+    </section>
+
+    <section>
+      <h2>Journal GitDTL</h2>
+      <p>Le journal est créé automatiquement dans :</p>
+      <pre>logs\gitdtl.log</pre>
+      <p>Il indique ce qui a été fait, quand cela a été fait, quelles commandes Git ont été exécutées et dans quel ordre. La fenêtre du journal permet d'actualiser, d'effacer après confirmation et d'exporter une copie horodatée.</p>
+    </section>
+  </main>
+</body>
+</html>
