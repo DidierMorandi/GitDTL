@@ -56,3 +56,13 @@ Les fichiers affichés dans cette alerte existent dans le dossier, mais ne sont 
 Si vous publiez maintenant, les changements déjà validés seront envoyés sur GitHub, mais ces fichiers resteront uniquement sur votre ordinateur.
 
 Il est souvent préférable d'ajouter les fichiers puis de valider les changements avant de publier.
+
+## github_remote_url
+
+Git a besoin de connaître l'adresse du dépôt GitHub où publier le projet.
+
+Créez d'abord un dépôt vide sur GitHub, puis copiez son URL.
+
+Exemples :
+- https://github.com/compte/projet.git
+- git@github.com:compte/projet.git

@@ -6,7 +6,7 @@ import shutil
 import subprocess
 from pathlib import Path
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, ttk
 
 
 APP_NAME = "GitDTL"
@@ -51,6 +51,13 @@ DEFAULT_HELP_TEXTS = {
         "Si des fichiers ne sont pas validés dans un commit, ils ne feront pas partie de la version publiée. "
         "Il est souvent préférable d'ajouter les fichiers puis de valider les changements avant de publier."
     ),
+    "github_remote_url": (
+        "Git a besoin de connaître l'adresse du dépôt GitHub où publier le projet.\n\n"
+        "Créez d'abord un dépôt vide sur GitHub, puis copiez son URL.\n"
+        "Exemples :\n"
+        "- https://github.com/compte/projet.git\n"
+        "- git@github.com:compte/projet.git"
+    ),
 }
 
 COLOR_BG = "#090d0f"
@@ -59,6 +66,9 @@ COLOR_TERMINAL = "#070b0d"
 COLOR_TEXT = "#00ff2f"
 COLOR_MUTED = "#9aa0a6"
 COLOR_BLUE = "#2f8cff"
+COLOR_DEC_BLUE = "#00a0e3"
+COLOR_WARNING = "#ffbf00"
+COLOR_ERROR = "#ff1a1a"
 COLOR_BORDER = "#30363d"
 COLOR_BORDER_LIGHT = "#d8dee9"
 COLOR_INPUT_BG = "#f5f5f5"
@@ -441,7 +451,79 @@ class GitDTLApp:
         window.geometry(f"{width}x{height}+{x}+{y}")
 
     def show_help(self, title: str, content: str) -> None:
-        messagebox.showinfo(f"Aide - {title}", content)
+        self.show_info(f"Aide - {title}", content)
+
+    def message_color(self, kind: str) -> str:
+        if kind == "warning":
+            return COLOR_WARNING
+        if kind == "error":
+            return COLOR_ERROR
+        return COLOR_DEC_BLUE
+
+    def show_message(self, title: str, content: str, kind: str = "info") -> None:
+        color = self.message_color(kind)
+
+        window = tk.Toplevel(self.root)
+        window.title(title)
+        window.configure(bg=COLOR_BG)
+        window.resizable(False, False)
+        window.transient(self.root)
+
+        tk.Label(
+            window,
+            text=title,
+            bg=COLOR_BG,
+            fg=color,
+            font=FONT_MONO,
+            padx=18,
+            pady=12,
+        ).pack(anchor="w")
+
+        tk.Label(
+            window,
+            text=content,
+            bg=COLOR_BG,
+            fg=color,
+            justify="left",
+            wraplength=620,
+            font=("Courier New", 10),
+            padx=18,
+            pady=8,
+        ).pack(anchor="w")
+
+        button_bar = tk.Frame(window, bg=COLOR_BG, padx=18)
+        button_bar.pack(fill="x", pady=(8, 16))
+        tk.Button(
+            button_bar,
+            text="OK",
+            command=window.destroy,
+            bg=COLOR_PANEL,
+            fg=COLOR_TEXT,
+            activebackground=COLOR_TERMINAL,
+            activeforeground=COLOR_TEXT,
+            borderwidth=1,
+            highlightthickness=1,
+            highlightbackground=COLOR_BORDER_LIGHT,
+            highlightcolor=COLOR_BORDER_LIGHT,
+            relief="solid",
+            font=FONT_MONO_SMALL,
+            padx=18,
+            pady=7,
+        ).pack(side="right")
+
+        window.protocol("WM_DELETE_WINDOW", window.destroy)
+        self.center_window(window)
+        window.grab_set()
+        window.wait_window()
+
+    def show_info(self, title: str, content: str) -> None:
+        self.show_message(title, content, "info")
+
+    def show_warning(self, title: str, content: str) -> None:
+        self.show_message(title, content, "warning")
+
+    def show_error_message(self, title: str, content: str) -> None:
+        self.show_message(title, content, "error")
 
     def ask_text(self, title: str, prompt: str, help_text: str) -> str | None:
         answer = {"value": None}
@@ -546,8 +628,16 @@ class GitDTLApp:
         window.wait_window()
         return answer["value"]
 
-    def ask_choice(self, title: str, question: str, choices: list[tuple[str, object]], help_text: str) -> object:
+    def ask_choice(
+        self,
+        title: str,
+        question: str,
+        choices: list[tuple[str, object]],
+        help_text: str,
+        kind: str = "info",
+    ) -> object:
         answer = {"value": None}
+        message_color = self.message_color(kind)
 
         window = tk.Toplevel(self.root)
         window.title(title)
@@ -575,7 +665,7 @@ class GitDTLApp:
             window,
             text=question,
             bg=COLOR_BG,
-            fg=COLOR_TEXT,
+            fg=message_color,
             justify="left",
             font=FONT_MONO,
             padx=18,
@@ -686,6 +776,7 @@ class GitDTLApp:
             "Voulez-vous le créer maintenant ?",
             [("Créer le projet Git", True), ("Annuler", False)],
             self.help_text("create_git_repository"),
+            kind="warning",
         )
         if not confirmed:
             return False
@@ -696,7 +787,7 @@ class GitDTLApp:
             return False
 
         self.log_info("Dépôt Git initialisé.")
-        messagebox.showinfo(APP_NAME, "Projet Git créé avec succès.")
+        self.show_info(APP_NAME, "Projet Git créé avec succès.")
         return True
 
     def summarize_status(self) -> tuple[int, int, bool]:
@@ -808,7 +899,7 @@ class GitDTLApp:
             return
         new_files, ignored_files = self.filter_new_files(filenames)
         if ignored_files:
-            messagebox.showinfo(
+            self.show_info(
                 APP_NAME,
                 "Ces fichiers sont déjà connus de Git ou déjà ajoutés :\n\n"
                 + "\n".join(ignored_files),
@@ -827,7 +918,7 @@ class GitDTLApp:
         try:
             result = self.run_git(["add", "--", *filenames])
             if result.returncode == 0:
-                messagebox.showinfo(APP_NAME, success_message)
+                self.show_info(APP_NAME, success_message)
             else:
                 self.show_command_error(result)
         except Exception as exc:
@@ -874,10 +965,10 @@ class GitDTLApp:
                 result = self.run_git(["rm", "-f", "--cached", "--", *filenames])
             if result.returncode == 0:
                 if removal_action == "delete":
-                    messagebox.showinfo(APP_NAME, "Fichier(s) supprimé(s) du dépôt et du dossier.")
+                    self.show_info(APP_NAME, "Fichier(s) supprimé(s) du dépôt et du dossier.")
                 else:
                     self.add_to_gitignore(filenames)
-                    messagebox.showinfo(APP_NAME, "Fichier(s) retiré(s) du dépôt et ajouté(s) dans .gitignore.")
+                    self.show_info(APP_NAME, "Fichier(s) retiré(s) du dépôt et ajouté(s) dans .gitignore.")
             else:
                 self.show_command_error(result)
         except Exception as exc:
@@ -893,6 +984,7 @@ class GitDTLApp:
                 ("Annuler", None),
             ],
             self.help_text("remove_file_action"),
+            kind="warning",
         )
 
     def add_to_gitignore(self, filenames: list[str]) -> None:
@@ -927,7 +1019,7 @@ class GitDTLApp:
         try:
             result = self.run_git(["commit", "-m", message])
             if result.returncode == 0:
-                messagebox.showinfo(APP_NAME, "Changements validés avec succès.")
+                self.show_info(APP_NAME, "Changements validés avec succès.")
             else:
                 self.show_command_error(result)
         except Exception as exc:
@@ -937,14 +1029,47 @@ class GitDTLApp:
         try:
             if not self.confirm_before_push():
                 return
+            if not self.ensure_remote_repository():
+                return
             result = self.run_git(["push"])
             if result.returncode == 0:
-                messagebox.showinfo(APP_NAME, "Publication réussie.")
+                self.show_info(APP_NAME, "Publication réussie.")
             else:
-                messagebox.showerror(APP_NAME, "Erreur détectée.")
+                self.show_error_message(APP_NAME, "Erreur détectée.")
                 self.show_command_error(result)
         except Exception as exc:
             self.show_error(exc)
+
+    def ensure_remote_repository(self) -> bool:
+        remote = self.run_git(["remote", "get-url", "origin"])
+        if remote.returncode == 0 and remote.stdout.strip():
+            return True
+
+        remote_url = self.ask_text(
+            "Configurer GitHub",
+            "Aucun dépôt GitHub n'est configuré.\n\n"
+            "Adresse du dépôt GitHub :",
+            self.help_text("github_remote_url"),
+        )
+        if not remote_url:
+            return False
+
+        existing_remotes = self.run_git(["remote"])
+        if existing_remotes.returncode != 0:
+            self.show_command_error(existing_remotes)
+            return False
+
+        if "origin" in existing_remotes.stdout.split():
+            result = self.run_git(["remote", "set-url", "origin", remote_url])
+        else:
+            result = self.run_git(["remote", "add", "origin", remote_url])
+
+        if result.returncode != 0:
+            self.show_command_error(result)
+            return False
+
+        self.show_info(APP_NAME, "Dépôt GitHub configuré.")
+        return True
 
     def create_release(self) -> None:
         version = self.ask_text(
@@ -972,6 +1097,7 @@ class GitDTLApp:
             "Continuer ?",
             [("Continuer", True), ("Annuler", False)],
             self.help_text("release_confirmation"),
+            kind="warning",
         )
         if not confirmed:
             return
@@ -996,7 +1122,7 @@ class GitDTLApp:
             if push_tag.returncode != 0:
                 self.show_command_error(push_tag)
                 return
-            messagebox.showinfo(APP_NAME, f"Version {tag} créée et publiée.")
+            self.show_info(APP_NAME, f"Version {tag} créée et publiée.")
         except Exception as exc:
             self.show_error(exc)
 
@@ -1072,6 +1198,7 @@ class GitDTLApp:
                 "ATTENTION\n\nLe journal GitDTL sera définitivement supprimé.\n\nContinuer ?",
                 [("Effacer le journal", True), ("Annuler", False)],
                 self.help_text("clear_log"),
+                kind="warning",
             )
             if not confirmed:
                 return
@@ -1084,7 +1211,7 @@ class GitDTLApp:
             export_path = self.log_dir / f"gitdtl_{stamp}.txt"
             export_path.write_text(self.log_file.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
             self.log_info(f"Journal exporté : {export_path}")
-            messagebox.showinfo(APP_NAME, f"Journal exporté :\n{export_path}")
+            self.show_info(APP_NAME, f"Journal exporté :\n{export_path}")
             load_log()
 
         ttk.Button(button_bar, text="Actualiser", style="GitDTL.TButton", command=load_log).pack(side="left", padx=(0, 8))
@@ -1116,6 +1243,7 @@ class GitDTLApp:
             "Voulez-vous continuer ?",
             [("Publier quand même", True), ("Annuler", False)],
             self.help_text("publish_with_uncommitted_changes"),
+            kind="warning",
         )
 
     def extract_status_filenames(self, status_lines: list[str]) -> list[str]:
@@ -1146,14 +1274,14 @@ class GitDTLApp:
             for selected in selected_files:
                 filenames.append(Path(selected).resolve().relative_to(project_dir).as_posix())
         except ValueError:
-            messagebox.showerror(
+            self.show_error_message(
                 APP_NAME,
                 "Tous les fichiers choisis doivent se trouver dans le dossier du projet courant.",
             )
             return []
         return filenames
 
-    def make_text_window(self, title: str, width: int = 860, height: int = 560):
+    def make_text_window(self, title: str, width: int = 860, height: int = 560, text_color: str = COLOR_TEXT):
         window = tk.Toplevel(self.root)
         window.title(title)
         window.geometry(f"{width}x{height}")
@@ -1163,7 +1291,7 @@ class GitDTLApp:
             window,
             text=title,
             bg=COLOR_BG,
-            fg=COLOR_TEXT,
+            fg=text_color,
             font=FONT_MONO,
             padx=16,
             pady=14,
@@ -1179,7 +1307,7 @@ class GitDTLApp:
         text = tk.Text(
             frame,
             bg=COLOR_TERMINAL,
-            fg=COLOR_TEXT,
+            fg=text_color,
             insertbackground=COLOR_TEXT,
             selectbackground=COLOR_BLUE,
             wrap="word",
@@ -1194,8 +1322,14 @@ class GitDTLApp:
         window.text_widget = text
         return window
 
-    def show_text_window(self, title: str, content: str, scroll_to_end: bool = False) -> None:
-        window = self.make_text_window(title)
+    def show_text_window(
+        self,
+        title: str,
+        content: str,
+        scroll_to_end: bool = False,
+        text_color: str = COLOR_TEXT,
+    ) -> None:
+        window = self.make_text_window(title, text_color=text_color)
         window.text_widget.insert("1.0", content)
         if scroll_to_end:
             window.text_widget.see("end")
@@ -1204,11 +1338,11 @@ class GitDTLApp:
     def show_command_error(self, result: subprocess.CompletedProcess[str]) -> None:
         output = "\n".join(part.strip() for part in [result.stdout, result.stderr] if part.strip())
         self.log_error(output or f"Commande terminée avec le code {result.returncode}")
-        self.show_text_window("Erreur détectée", output or "Erreur détectée.")
+        self.show_text_window("Erreur détectée", output or "Erreur détectée.", text_color=COLOR_ERROR)
 
     def show_error(self, exc: Exception) -> None:
         self.log_error(str(exc))
-        messagebox.showerror(APP_NAME, str(exc))
+        self.show_error_message(APP_NAME, str(exc))
 
 
 def main() -> None:
