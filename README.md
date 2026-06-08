@@ -12,7 +12,7 @@ Interface graphique Windows pour la gestion quotidienne de projets Git, conçue 
 
 GitDTL est une application de bureau Python/Tkinter qui expose les opérations Git essentielles sous forme d'un menu numéroté. Elle peut être utilisée sur n'importe quel dépôt local, même inexistant. Dans ce cas, l'outil en proposera la création.
 
-L'interface adopte l'esthétique terminale de la suite NetDTL : fond noir, texte vert phosphore, police monospace Courier New.
+L'interface adopte l'esthétique "Terminal DEC VT100" de la suite NetDTL : fond noir, texte vert phosphore, police monospace Courier New.
 
 ---
 
