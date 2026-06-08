@@ -85,6 +85,8 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 
 **Système expert.** Les messages Git non prévus par l'interface peuvent être enrichis par des conseils issus de règles placées dans `expert_git.md`.
 
+**Bienvenue première utilisation.** Au premier lancement, GitDTL affiche un écran de bienvenue dont le texte vient de la section `welcome` de `aide.md`. Un cookie local `.gitdtl_welcome_seen` évite de réafficher cet écran ensuite.
+
 ---
 
 ## Personnalisation de l'aide

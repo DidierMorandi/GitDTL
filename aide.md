@@ -3,6 +3,19 @@
 Modifiez librement les textes sous chaque titre `##`.
 Ne changez pas les titres `## create_git_repository`, `## remove_file_action`, etc. : GitDTL les utilise pour retrouver le bon texte d'aide.
 
+## welcome
+
+# Bienvenue dans GitDTL
+
+GitDTL vous accompagne dans les opérations Git courantes sans passer par la ligne de commande.
+
+Pour démarrer :
+- choisissez ou vérifiez le dossier du projet courant ;
+- utilisez l'option 1 pour connaître l'état du projet ;
+- suivez les options mises en surbrillance ambre pour avancer dans le bon ordre.
+
+Cet écran de bienvenue ne s'affiche qu'à la première utilisation.
+
 ## create_git_repository
 
 Un projet Git permet de suivre un historique de la gestion de ses fichiers. L'utilitaire Git permet aussi de déposer un projet sur le site GitHub.

@@ -16,7 +16,13 @@ APP_VERSION = "v1.0.0"
 APP_SUBTITLE = "Git simplifié pour les projets DTL"
 HELP_FILE = "aide.md"
 EXPERT_FILE = "expert_git.md"
+WELCOME_COOKIE = ".gitdtl_welcome_seen"
 DEFAULT_HELP_TEXTS = {
+    "welcome": (
+        "Bienvenue dans GitDTL.\n\n"
+        "GitDTL vous accompagne dans les opérations Git courantes sans passer par la ligne de commande.\n\n"
+        "Commencez par choisir un dossier de projet, puis utilisez le menu numéroté."
+    ),
     "create_git_repository": (
         "Un projet Git permet de suivre l'historique des fichiers.\n\n"
         "Choisissez 'Créer le projet Git' pour lancer git init dans le dossier courant.\n"
@@ -320,6 +326,7 @@ class GitDTLApp:
         self._ensure_log()
         self.log_info(f"Projet ouvert : {self.project_dir}")
         self.update_project_label()
+        self.show_welcome_if_first_use()
 
     def detect_app_dir(self) -> Path:
         if getattr(sys, "frozen", False):
@@ -339,6 +346,23 @@ class GitDTLApp:
             (directory / marker).exists()
             for marker in [".git", "GitDTL.py", "README.md", "aide.md"]
         )
+
+    def welcome_cookie_path(self) -> Path:
+        return self.project_dir / WELCOME_COOKIE
+
+    def show_welcome_if_first_use(self) -> None:
+        cookie_path = self.welcome_cookie_path()
+        if cookie_path.exists():
+            return
+
+        self.show_markdown_window("Bienvenue dans GitDTL", self.help_text("welcome"))
+        try:
+            cookie_path.write_text(
+                f"{APP_NAME} {APP_VERSION}\n{_dt.datetime.now().isoformat(timespec='seconds')}\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            self.log_error(f"Impossible d'écrire le cookie de bienvenue : {exc}")
 
     def load_help_texts(self) -> dict[str, str]:
         help_texts = DEFAULT_HELP_TEXTS.copy()
