@@ -51,4 +51,8 @@ Effacer le journal vide le fichier de log courant, mais ne modifie pas le projet
 
 Publier envoie le projet vers un dépôt GitHub préalablement configuré sur le site github.com.
 
-Si des fichiers ne sont pas validés dans un commit, ils ne feront pas partie de la version publiée. Il est souvent préférable d'ajouter les fichiers puis de valider les changements avant de publier.
+Les fichiers affichés dans cette alerte existent dans le dossier, mais ne sont pas encore inclus dans une validation Git.
+
+Si vous publiez maintenant, les changements déjà validés seront envoyés sur GitHub, mais ces fichiers resteront uniquement sur votre ordinateur.
+
+Il est souvent préférable d'ajouter les fichiers puis de valider les changements avant de publier.

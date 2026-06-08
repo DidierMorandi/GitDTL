@@ -1,4 +1,4 @@
-# GitDTL v1.0.0 Stable
+# GitDTL v1.0.0
 
 GitDTL est un utilitaire Windows qui rend Git plus accessible aux administrateurs système débutants.
 
@@ -14,7 +14,7 @@ GitDTL masque les commandes Git courantes derriere des actions simples :
 - modifier un fichier
 - supprimer un fichier
 - publier
-- créer une version stable
+- créer une version
 - consulter l'historique
 - diagnostiquer le dépôt
 - lire le journal des operations
@@ -49,7 +49,7 @@ Le journal conserve les opérations réalisées et les commandes Git exécutées
 ## Securite
 
 - Une confirmation est demandée avant la suppression d'un fichier.
-- Une confirmation est demandée avant la création d'une release stable.
+- Une confirmation est demandée avant la création d'une version.
 - Avant chaque publication, GitDTL vérifie l'état du dépôt avec Git et avertit si des fichiers ne sont pas encore validés.
 
 ## Livrables

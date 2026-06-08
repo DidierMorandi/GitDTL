@@ -372,18 +372,18 @@ class GitDTLApp:
         menu_items.place(relx=0.5, rely=0.08, anchor="n")
 
         actions = [
-            ("1  État du projet", self.show_status, False),
-            ("2  Voir les modifications", self.show_diff, True),
-            ("3  Ajouter un fichier au projet", self.add_file, True),
-            ("4  Mettre à jour un fichier", self.update_file, True),
-            ("5  Supprimer un fichier du projet", self.remove_file, True),
-            ("6  Valider les changements", self.commit_changes, True),
-            ("7  Publier le projet sur GitHub", self.push_to_github, True),
-            ("8  Créer une version", self.create_release, True),
-            ("9  Historique des versions", self.show_history, True),
-            ("10 Synchroniser le projet depuis GitHub", self.pull_from_github, True),
-            ("11 Diagnostic GitDTL", self.show_diagnostic, True),
-            ("12 Lire le journal", self.show_log_window, True),
+            ("1  État du projet (git status)", self.show_status, False),
+            ("2  Voir les modifications (git diff)", self.show_diff, True),
+            ("3  Ajouter un fichier au projet (git add)", self.add_file, True),
+            ("4  Enregistrer un fichier modifié dans le projet (git add)", self.update_file, True),
+            ("5  Supprimer un fichier du projet (git rm)", self.remove_file, True),
+            ("6  Valider les changements (git commit)", self.commit_changes, True),
+            ("7  Publier le projet sur GitHub (git push)", self.push_to_github, True),
+            ("8  Créer une version (git tag)", self.create_release, True),
+            ("9  Historique des versions (git log)", self.show_history, True),
+            ("10 Synchroniser le projet depuis GitHub (git pull)", self.pull_from_github, True),
+            ("11 Diagnostic GitDTL (git status)", self.show_diagnostic, True),
+            ("12 Lire le journal (log)", self.show_log_window, True),
             ("", None, False),
             ("0  Quitter le menu", self.root.destroy, False),
         ]
@@ -806,7 +806,16 @@ class GitDTLApp:
         filenames = self.ask_project_files("Choisir les fichiers à ajouter")
         if not filenames:
             return
-        self.git_add_files(filenames, "Fichier(s) ajouté(s) avec succès.")
+        new_files, ignored_files = self.filter_new_files(filenames)
+        if ignored_files:
+            messagebox.showinfo(
+                APP_NAME,
+                "Ces fichiers sont déjà connus de Git ou déjà ajoutés :\n\n"
+                + "\n".join(ignored_files),
+            )
+        if not new_files:
+            return
+        self.git_add_files(new_files, "Fichier(s) ajouté(s) avec succès.")
 
     def update_file(self) -> None:
         filenames = self.ask_project_files("Choisir les fichiers à mettre à jour")
@@ -823,6 +832,33 @@ class GitDTLApp:
                 self.show_command_error(result)
         except Exception as exc:
             self.show_error(exc)
+
+    def filter_new_files(self, filenames: list[str]) -> tuple[list[str], list[str]]:
+        status_by_file = self.get_status_by_file()
+        new_files = []
+        ignored_files = []
+
+        for filename in filenames:
+            if status_by_file.get(filename) == "??":
+                new_files.append(filename)
+            else:
+                ignored_files.append(filename)
+
+        return new_files, ignored_files
+
+    def get_status_by_file(self) -> dict[str, str]:
+        result = self.run_git(["status", "--porcelain", "--untracked-files=all"])
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Impossible de lire l'état Git.")
+
+        statuses = {}
+        for line in result.stdout.splitlines():
+            if not line.strip():
+                continue
+            status = line[:2]
+            filename = line[3:]
+            statuses[filename] = status
+        return statuses
 
     def remove_file(self) -> None:
         filenames = self.ask_project_files("Choisir les fichiers à supprimer du projet")
@@ -1067,18 +1103,34 @@ class GitDTLApp:
         if not lines:
             return True
 
-        untracked = sum(1 for line in lines if line.startswith("??"))
-        modified = len(lines) - untracked
+        unpublished_files = self.extract_status_filenames(lines)
+        file_list = "\n".join(f"- {filename}" for filename in unpublished_files)
         return self.ask_choice(
             "Vérification avant publication",
-            "GitDTL a vérifié l'état du projet avant publication.\n\n"
-            f"Fichiers modifiés : {modified}\n"
-            f"Fichiers non suivis : {untracked}\n\n"
-            "Certains fichiers ne sont pas encore enregistrés dans une validation.\n\n"
-            "Publier quand même ?",
+            "Les fichiers suivants existent dans le dossier\n"
+            "mais ne feront pas partie de la publication :\n\n"
+            f"{file_list}\n\n"
+            "Si vous publiez maintenant :\n\n"
+            "✓ les changements validés seront publiés\n\n"
+            "✗ ces fichiers ne seront pas envoyés sur GitHub\n\n"
+            "Voulez-vous continuer ?",
             [("Publier quand même", True), ("Annuler", False)],
             self.help_text("publish_with_uncommitted_changes"),
         )
+
+    def extract_status_filenames(self, status_lines: list[str]) -> list[str]:
+        filenames = []
+        seen = set()
+
+        for line in status_lines:
+            filename = line[3:]
+            if " -> " in filename:
+                filename = filename.split(" -> ", 1)[1]
+            if filename not in seen:
+                filenames.append(filename)
+                seen.add(filename)
+
+        return filenames
 
     def ask_project_files(self, title: str) -> list[str]:
         selected_files = filedialog.askopenfilenames(
