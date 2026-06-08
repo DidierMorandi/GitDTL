@@ -6,12 +6,52 @@ import shutil
 import subprocess
 from pathlib import Path
 import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
 
 APP_NAME = "GitDTL"
-APP_VERSION = "v1.0.0 Stable"
+APP_VERSION = "v1.0.0"
 APP_SUBTITLE = "Git simplifié pour les projets DTL"
+HELP_FILE = "aide.md"
+DEFAULT_HELP_TEXTS = {
+    "create_git_repository": (
+        "Un projet Git permet de suivre l'historique des fichiers.\n\n"
+        "Choisissez 'Créer le projet Git' pour lancer git init dans le dossier courant.\n"
+        "Choisissez 'Annuler' pour revenir au menu sans créer de dépôt."
+    ),
+    "remove_file_action": (
+        "Le premier choix supprime le fichier du disque et de Git.\n\n"
+        "Le deuxième choix conserve le fichier dans le dossier, le retire seulement du suivi Git "
+        "et l'ajoute dans .gitignore pour qu'il ne soit plus proposé ensuite.\n\n"
+        "Annuler ne modifie rien."
+    ),
+    "commit_message": (
+        "Cette description est le message de commit.\n\n"
+        "Elle doit expliquer brièvement ce qui vient de changer, par exemple :\n"
+        "- Ajout du logo NetDTL\n"
+        "- Correction de la suppression des fichiers\n"
+        "- Mise à jour de l'interface principale"
+    ),
+    "release_version": (
+        "Indiquez le numéro de version à publier.\n\n"
+        "Exemples : 1.0.0, 1.1.0, 2.0.0.\n"
+        "GitDTL ajoutera automatiquement le préfixe v pour créer le tag Git."
+    ),
+    "release_confirmation": (
+        "Une version crée un point de repère officiel dans l'historique Git.\n\n"
+        "GitDTL va créer un commit, poser un tag de version, puis publier le tout sur GitHub.\n"
+        "Utilisez cette action uniquement quand la version est prête à être conservée."
+    ),
+    "clear_log": (
+        "Le journal contient les actions et erreurs enregistrées par GitDTL.\n\n"
+        "Effacer le journal vide le fichier de log courant, mais ne modifie pas le projet Git."
+    ),
+    "publish_with_uncommitted_changes": (
+        "Publier envoie le projet vers le dépôt GitHub configuré.\n\n"
+        "Si des fichiers ne sont pas validés dans un commit, ils ne feront pas partie de la version publiée. "
+        "Il est souvent préférable d'ajouter les fichiers puis de valider les changements avant de publier."
+    ),
+}
 
 COLOR_BG = "#090d0f"
 COLOR_PANEL = "#12171b"
@@ -190,6 +230,7 @@ class GitDTLApp:
         self.project_dir = Path.cwd()
         self.log_dir = self.project_dir / "logs"
         self.log_file = self.log_dir / "gitdtl.log"
+        self.help_texts = self.load_help_texts()
 
         self.root.title(f"{APP_NAME} {APP_VERSION}")
         self.root.geometry("920x760")
@@ -201,6 +242,38 @@ class GitDTLApp:
         self._ensure_log()
         self.log_info(f"Projet ouvert : {self.project_dir}")
         self.update_project_label()
+
+    def load_help_texts(self) -> dict[str, str]:
+        help_texts = DEFAULT_HELP_TEXTS.copy()
+        help_path = Path(__file__).resolve().parent / HELP_FILE
+        if not help_path.exists():
+            return help_texts
+
+        try:
+            content = help_path.read_text(encoding="utf-8")
+        except OSError:
+            return help_texts
+
+        current_key = None
+        sections: dict[str, list[str]] = {}
+        for line in content.splitlines():
+            if line.startswith("## "):
+                key = line[3:].strip()
+                current_key = key if key in help_texts else None
+                if current_key is not None:
+                    sections[current_key] = []
+                continue
+            if current_key is not None:
+                sections[current_key].append(line)
+
+        for key, lines in sections.items():
+            text = "\n".join(lines).strip()
+            if text:
+                help_texts[key] = text
+        return help_texts
+
+    def help_text(self, key: str) -> str:
+        return self.help_texts.get(key, DEFAULT_HELP_TEXTS.get(key, "Aucune aide disponible."))
 
     def _configure_style(self) -> None:
         style = ttk.Style()
@@ -306,7 +379,7 @@ class GitDTLApp:
             ("5  Supprimer un fichier du projet", self.remove_file, True),
             ("6  Valider les changements", self.commit_changes, True),
             ("7  Publier le projet sur GitHub", self.push_to_github, True),
-            ("8  Créer une version stable", self.create_stable_release, True),
+            ("8  Créer une version", self.create_release, True),
             ("9  Historique des versions", self.show_history, True),
             ("10 Synchroniser le projet depuis GitHub", self.pull_from_github, True),
             ("11 Diagnostic GitDTL", self.show_diagnostic, True),
@@ -358,6 +431,188 @@ class GitDTLApp:
                 self.show_error(exc)
 
         return wrapped_command
+
+    def center_window(self, window: tk.Toplevel) -> None:
+        window.update_idletasks()
+        width = window.winfo_width()
+        height = window.winfo_height()
+        x = (window.winfo_screenwidth() - width) // 2
+        y = (window.winfo_screenheight() - height) // 2
+        window.geometry(f"{width}x{height}+{x}+{y}")
+
+    def show_help(self, title: str, content: str) -> None:
+        messagebox.showinfo(f"Aide - {title}", content)
+
+    def ask_text(self, title: str, prompt: str, help_text: str) -> str | None:
+        answer = {"value": None}
+
+        window = tk.Toplevel(self.root)
+        window.title(title)
+        window.configure(bg=COLOR_BG)
+        window.resizable(False, False)
+        window.transient(self.root)
+
+        top_bar = tk.Frame(window, bg=COLOR_BG, padx=18)
+        top_bar.pack(fill="x", pady=(12, 0))
+        tk.Button(
+            top_bar,
+            text="? pour Aide",
+            command=lambda: self.show_help(title, help_text),
+            bg=COLOR_BG,
+            fg=COLOR_MUTED,
+            activebackground=COLOR_BG,
+            activeforeground=COLOR_TEXT,
+            borderwidth=0,
+            highlightthickness=0,
+            font=FONT_MONO_SMALL,
+            cursor="hand2",
+        ).pack(side="right")
+
+        tk.Label(
+            window,
+            text=prompt,
+            bg=COLOR_BG,
+            fg=COLOR_TEXT,
+            justify="left",
+            font=FONT_MONO,
+            padx=18,
+            pady=8,
+        ).pack(anchor="w")
+
+        entry = tk.Entry(
+            window,
+            bg=COLOR_INPUT_BG,
+            fg=COLOR_INPUT_TEXT,
+            insertbackground=COLOR_INPUT_TEXT,
+            relief="flat",
+            borderwidth=0,
+            font=("Courier New", 10),
+            width=56,
+        )
+        entry.pack(fill="x", padx=18, pady=(0, 12), ipady=7)
+
+        button_bar = tk.Frame(window, bg=COLOR_BG, padx=18)
+        button_bar.pack(fill="x", pady=(0, 16))
+
+        def submit() -> None:
+            value = entry.get().strip()
+            answer["value"] = value or None
+            window.destroy()
+
+        def cancel() -> None:
+            answer["value"] = None
+            window.destroy()
+
+        tk.Button(
+            button_bar,
+            text="Valider",
+            command=submit,
+            bg=COLOR_PANEL,
+            fg=COLOR_TEXT,
+            activebackground=COLOR_TERMINAL,
+            activeforeground=COLOR_TEXT,
+            borderwidth=1,
+            highlightthickness=1,
+            highlightbackground=COLOR_BORDER_LIGHT,
+            highlightcolor=COLOR_BORDER_LIGHT,
+            relief="solid",
+            font=FONT_MONO_SMALL,
+            padx=12,
+            pady=7,
+        ).pack(side="right", padx=(8, 0))
+        tk.Button(
+            button_bar,
+            text="Annuler",
+            command=cancel,
+            bg=COLOR_PANEL,
+            fg=COLOR_TEXT,
+            activebackground=COLOR_TERMINAL,
+            activeforeground=COLOR_TEXT,
+            borderwidth=1,
+            highlightthickness=1,
+            highlightbackground=COLOR_BORDER_LIGHT,
+            highlightcolor=COLOR_BORDER_LIGHT,
+            relief="solid",
+            font=FONT_MONO_SMALL,
+            padx=12,
+            pady=7,
+        ).pack(side="right")
+
+        window.protocol("WM_DELETE_WINDOW", cancel)
+        entry.bind("<Return>", lambda _event: submit())
+        entry.focus_set()
+        self.center_window(window)
+        window.grab_set()
+        window.wait_window()
+        return answer["value"]
+
+    def ask_choice(self, title: str, question: str, choices: list[tuple[str, object]], help_text: str) -> object:
+        answer = {"value": None}
+
+        window = tk.Toplevel(self.root)
+        window.title(title)
+        window.configure(bg=COLOR_BG)
+        window.resizable(False, False)
+        window.transient(self.root)
+
+        top_bar = tk.Frame(window, bg=COLOR_BG, padx=18)
+        top_bar.pack(fill="x", pady=(12, 0))
+        tk.Button(
+            top_bar,
+            text="? pour Aide",
+            command=lambda: self.show_help(title, help_text),
+            bg=COLOR_BG,
+            fg=COLOR_MUTED,
+            activebackground=COLOR_BG,
+            activeforeground=COLOR_TEXT,
+            borderwidth=0,
+            highlightthickness=0,
+            font=FONT_MONO_SMALL,
+            cursor="hand2",
+        ).pack(side="right")
+
+        tk.Label(
+            window,
+            text=question,
+            bg=COLOR_BG,
+            fg=COLOR_TEXT,
+            justify="left",
+            font=FONT_MONO,
+            padx=18,
+            pady=8,
+        ).pack(anchor="w", pady=(0, 4))
+
+        button_bar = tk.Frame(window, bg=COLOR_BG, padx=18)
+        button_bar.pack(fill="x", pady=(0, 16))
+
+        def select(value: object) -> None:
+            answer["value"] = value
+            window.destroy()
+
+        for label, value in choices:
+            tk.Button(
+                button_bar,
+                text=label,
+                command=lambda selected=value: select(selected),
+                bg=COLOR_PANEL,
+                fg=COLOR_TEXT,
+                activebackground=COLOR_TERMINAL,
+                activeforeground=COLOR_TEXT,
+                borderwidth=1,
+                highlightthickness=1,
+                highlightbackground=COLOR_BORDER_LIGHT,
+                highlightcolor=COLOR_BORDER_LIGHT,
+                relief="solid",
+                font=FONT_MONO_SMALL,
+                padx=10,
+                pady=8,
+            ).pack(fill="x", pady=4)
+
+        window.protocol("WM_DELETE_WINDOW", lambda: select(None))
+        self.center_window(window)
+        window.grab_set()
+        window.wait_window()
+        return answer["value"]
 
     def update_project_label(self) -> None:
         self.project_label.config(text=f"Projet courant :\n{self.project_dir}")
@@ -424,12 +679,13 @@ class GitDTLApp:
         if self.is_git_repository():
             return True
 
-        confirmed = messagebox.askyesno(
+        confirmed = self.ask_choice(
             APP_NAME,
             "Aucun projet Git n'a été créé dans ce dossier.\n\n"
             f"{self.project_dir}\n\n"
             "Voulez-vous le créer maintenant ?",
-            icon="question",
+            [("Créer le projet Git", True), ("Annuler", False)],
+            self.help_text("create_git_repository"),
         )
         if not confirmed:
             return False
@@ -450,6 +706,64 @@ class GitDTLApp:
         ready = len(lines) == 0
         return modified, untracked, ready
 
+    def format_status_details(self) -> str:
+        lines = self.get_porcelain_status()
+        if not lines:
+            return "Aucune modification détectée."
+
+        categories = {
+            "Fichiers ajoutés": [],
+            "Fichiers modifiés": [],
+            "Fichiers supprimés": [],
+            "Fichiers renommés": [],
+            "Fichiers copiés": [],
+            "Fichiers non suivis": [],
+            "Autres changements": [],
+        }
+        staged_labels = {
+            "A": "Fichiers ajoutés",
+            "M": "Fichiers modifiés",
+            "D": "Fichiers supprimés",
+            "R": "Fichiers renommés",
+            "C": "Fichiers copiés",
+        }
+        unstaged_labels = {
+            "A": "Fichiers ajoutés",
+            "M": "Fichiers modifiés",
+            "D": "Fichiers supprimés",
+            "R": "Fichiers renommés",
+            "C": "Fichiers copiés",
+        }
+
+        for line in lines:
+            if line.startswith("??"):
+                categories["Fichiers non suivis"].append(line[3:])
+                continue
+
+            staged = line[0]
+            unstaged = line[1]
+            filename = line[3:]
+            added = False
+
+            if staged in staged_labels:
+                categories[staged_labels[staged]].append(filename)
+                added = True
+            if unstaged in unstaged_labels:
+                categories[unstaged_labels[unstaged]].append(filename)
+                added = True
+            if not added:
+                categories["Autres changements"].append(filename)
+
+        sections = []
+        for title, filenames in categories.items():
+            if not filenames:
+                continue
+            sections.append(title + " :")
+            sections.extend(f"- {filename}" for filename in filenames)
+            sections.append("")
+
+        return "\n".join(sections).strip()
+
     def show_status(self) -> None:
         try:
             if not self.ensure_git_repository():
@@ -466,9 +780,25 @@ class GitDTLApp:
 
     def show_diff(self) -> None:
         try:
-            result = self.run_git(["diff"])
-            content = result.stdout.strip() or "Aucune modification visible avec git diff."
-            self.show_text_window("Voir les modifications", content)
+            status_content = self.format_status_details()
+            unstaged_diff = self.run_git(["diff"])
+            staged_diff = self.run_git(["diff", "--cached"])
+
+            if unstaged_diff.returncode != 0:
+                self.show_command_error(unstaged_diff)
+                return
+            if staged_diff.returncode != 0:
+                self.show_command_error(staged_diff)
+                return
+
+            sections = ["Résumé :", status_content]
+            if unstaged_diff.stdout.strip():
+                sections.extend(["", "Détail des modifications non ajoutées :", unstaged_diff.stdout.strip()])
+            if staged_diff.stdout.strip():
+                sections.extend(["", "Détail des modifications ajoutées au prochain commit :", staged_diff.stdout.strip()])
+
+            content = "\n".join(sections)
+            self.show_text_window("Voir les modifications", content, scroll_to_end=True)
         except Exception as exc:
             self.show_error(exc)
 
@@ -498,24 +828,16 @@ class GitDTLApp:
         filenames = self.ask_project_files("Choisir les fichiers à supprimer du projet")
         if not filenames:
             return
-        remove_from_disk = messagebox.askyesnocancel(
-            "ATTENTION",
-            "Que voulez-vous faire avec la sélection ?\n\n"
-            "Oui : retirer les fichiers du projet Git et les effacer du dossier.\n\n"
-            "Non : retirer les fichiers du projet Git, mais les conserver dans le dossier "
-            "et les ajouter dans .gitignore.\n\n"
-            "Annuler : ne rien faire.",
-            icon="warning",
-        )
-        if remove_from_disk is None:
+        removal_action = self.ask_removal_action()
+        if removal_action is None:
             return
         try:
-            if remove_from_disk:
-                result = self.run_git(["rm", "--", *filenames])
+            if removal_action == "delete":
+                result = self.run_git(["rm", "-f", "--", *filenames])
             else:
-                result = self.run_git(["rm", "--cached", "--", *filenames])
+                result = self.run_git(["rm", "-f", "--cached", "--", *filenames])
             if result.returncode == 0:
-                if remove_from_disk:
+                if removal_action == "delete":
                     messagebox.showinfo(APP_NAME, "Fichier(s) supprimé(s) du dépôt et du dossier.")
                 else:
                     self.add_to_gitignore(filenames)
@@ -524,6 +846,18 @@ class GitDTLApp:
                 self.show_command_error(result)
         except Exception as exc:
             self.show_error(exc)
+
+    def ask_removal_action(self) -> str | None:
+        return self.ask_choice(
+            "ATTENTION",
+            "Que voulez-vous faire  ?",
+            [
+                ("Retirer le fichier du projet et le supprimer du dossier", "delete"),
+                ("Retirer le fichier du projet mais le conserver dans le dossier", "keep"),
+                ("Annuler", None),
+            ],
+            self.help_text("remove_file_action"),
+        )
 
     def add_to_gitignore(self, filenames: list[str]) -> None:
         gitignore = self.project_dir / ".gitignore"
@@ -547,7 +881,11 @@ class GitDTLApp:
         self.log_info(f"Ajout dans .gitignore : {', '.join(missing_patterns)}")
 
     def commit_changes(self) -> None:
-        message = simpledialog.askstring("Valider les changements", "Description du changement :")
+        message = self.ask_text(
+            "Valider les changements",
+            "Description du changement :",
+            self.help_text("commit_message"),
+        )
         if not message:
             return
         try:
@@ -572,8 +910,12 @@ class GitDTLApp:
         except Exception as exc:
             self.show_error(exc)
 
-    def create_stable_release(self) -> None:
-        version = simpledialog.askstring("Créer une release stable", "Numéro de version :\n\nExemple : 1.0.0")
+    def create_release(self) -> None:
+        version = self.ask_text(
+            "Créer une version",
+            "Numéro de version :\n\nExemple : 1.0.0",
+            self.help_text("release_version"),
+        )
         if not version:
             return
         version = version.strip().lstrip("v")
@@ -581,10 +923,10 @@ class GitDTLApp:
             return
 
         tag = f"v{version}"
-        message = f"Version {version} stable"
-        confirmed = messagebox.askyesno(
+        message = f"Version {version}"
+        confirmed = self.ask_choice(
             "Confirmation obligatoire",
-            "GitDTL va créer une version stable.\n\n"
+            "GitDTL va créer une version.\n\n"
             f"Version : {version}\n\n"
             "Opérations prévues :\n"
             f"- git commit -m \"{message}\"\n"
@@ -592,7 +934,8 @@ class GitDTLApp:
             "- git push\n"
             f"- git push origin {tag}\n\n"
             "Continuer ?",
-            icon="warning",
+            [("Continuer", True), ("Annuler", False)],
+            self.help_text("release_confirmation"),
         )
         if not confirmed:
             return
@@ -617,7 +960,7 @@ class GitDTLApp:
             if push_tag.returncode != 0:
                 self.show_command_error(push_tag)
                 return
-            messagebox.showinfo(APP_NAME, f"Release stable {tag} créée et publiée.")
+            messagebox.showinfo(APP_NAME, f"Version {tag} créée et publiée.")
         except Exception as exc:
             self.show_error(exc)
 
@@ -688,10 +1031,11 @@ class GitDTLApp:
             text.config(state="disabled")
 
         def clear_log() -> None:
-            confirmed = messagebox.askyesno(
+            confirmed = self.ask_choice(
                 "ATTENTION",
                 "ATTENTION\n\nLe journal GitDTL sera définitivement supprimé.\n\nContinuer ?",
-                icon="warning",
+                [("Effacer le journal", True), ("Annuler", False)],
+                self.help_text("clear_log"),
             )
             if not confirmed:
                 return
@@ -725,14 +1069,15 @@ class GitDTLApp:
 
         untracked = sum(1 for line in lines if line.startswith("??"))
         modified = len(lines) - untracked
-        return messagebox.askyesno(
+        return self.ask_choice(
             "Vérification avant publication",
             "GitDTL a vérifié l'état du projet avant publication.\n\n"
             f"Fichiers modifiés : {modified}\n"
             f"Fichiers non suivis : {untracked}\n\n"
             "Certains fichiers ne sont pas encore enregistrés dans une validation.\n\n"
             "Publier quand même ?",
-            icon="warning",
+            [("Publier quand même", True), ("Annuler", False)],
+            self.help_text("publish_with_uncommitted_changes"),
         )
 
     def ask_project_files(self, title: str) -> list[str]:
@@ -797,9 +1142,11 @@ class GitDTLApp:
         window.text_widget = text
         return window
 
-    def show_text_window(self, title: str, content: str) -> None:
+    def show_text_window(self, title: str, content: str, scroll_to_end: bool = False) -> None:
         window = self.make_text_window(title)
         window.text_widget.insert("1.0", content)
+        if scroll_to_end:
+            window.text_widget.see("end")
         window.text_widget.config(state="disabled")
 
     def show_command_error(self, result: subprocess.CompletedProcess[str]) -> None:
