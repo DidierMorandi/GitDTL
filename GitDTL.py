@@ -4,6 +4,7 @@ import datetime as _dt
 import os
 import shutil
 import subprocess
+import sys
 import webbrowser
 from pathlib import Path
 import tkinter as tk
@@ -246,7 +247,8 @@ NETDTL_LOGO_BASE64 = (
 class GitDTLApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.project_dir = Path.cwd()
+        self.app_dir = self.detect_app_dir()
+        self.project_dir = self.detect_initial_project_dir()
         self.log_dir = self.project_dir / "logs"
         self.log_file = self.log_dir / "gitdtl.log"
         self.help_texts = self.load_help_texts()
@@ -262,9 +264,30 @@ class GitDTLApp:
         self.log_info(f"Projet ouvert : {self.project_dir}")
         self.update_project_label()
 
+    def detect_app_dir(self) -> Path:
+        if getattr(sys, "frozen", False):
+            return Path(sys.executable).resolve().parent
+        return Path(__file__).resolve().parent
+
+    def detect_initial_project_dir(self) -> Path:
+        current_dir = Path.cwd().resolve()
+        if current_dir.name.lower() == "dist" and self.looks_like_project_dir(current_dir.parent):
+            return current_dir.parent
+        if self.app_dir.name.lower() == "dist" and self.looks_like_project_dir(self.app_dir.parent):
+            return self.app_dir.parent
+        return current_dir
+
+    def looks_like_project_dir(self, directory: Path) -> bool:
+        return any(
+            (directory / marker).exists()
+            for marker in [".git", "GitDTL.py", "README.md", "aide.md"]
+        )
+
     def load_help_texts(self) -> dict[str, str]:
         help_texts = DEFAULT_HELP_TEXTS.copy()
-        help_path = Path(__file__).resolve().parent / HELP_FILE
+        help_path = self.app_dir / HELP_FILE
+        if not help_path.exists() and self.app_dir.name.lower() == "dist":
+            help_path = self.app_dir.parent / HELP_FILE
         if not help_path.exists():
             return help_texts
 
