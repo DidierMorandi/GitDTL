@@ -65,8 +65,9 @@ DEFAULT_HELP_TEXTS = {
         "Les ajouter à .gitignore évite qu'ils apparaissent dans les fichiers non suivis."
     ),
     "stage_modified_files": (
-        "Cette action lance git add sur les fichiers modifiés déjà connus de Git.\n\n"
-        "Elle prépare ces changements pour la prochaine validation."
+            "Cette action lance git add sur les fichiers modifiés déjà connus de Git "
+            "et sur les nouveaux fichiers non suivis.\n\n"
+            "Elle prépare ces changements pour la prochaine validation."
     ),
 }
 
@@ -1022,13 +1023,13 @@ class GitDTLApp:
         self.git_add_files(new_files, "Fichier(s) ajouté(s) avec succès.")
 
     def update_file(self) -> None:
-        filenames = self.unstaged_tracked_changes()
+        filenames = self.pending_files_for_add()
         if not filenames:
-            self.show_info(APP_NAME, "Aucun fichier modifié à enregistrer.")
+            self.show_info(APP_NAME, "Aucun fichier à enregistrer.")
             return
         confirmed = self.ask_choice(
             "Enregistrer les modifications",
-            "GitDTL a détecté les fichiers modifiés suivants :\n\n"
+            "GitDTL a détecté les fichiers suivants :\n\n"
             + "\n".join(f"- {filename}" for filename in filenames)
             + "\n\nLes enregistrer dans le projet ?",
             [("Enregistrer", True), ("Annuler", False)],
@@ -1061,7 +1062,7 @@ class GitDTLApp:
 
         return new_files, ignored_files
 
-    def unstaged_tracked_changes(self) -> list[str]:
+    def pending_files_for_add(self) -> list[str]:
         result = self.run_git(["status", "--porcelain"])
         if result.returncode != 0:
             raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Impossible de lire l'état Git.")
@@ -1069,13 +1070,17 @@ class GitDTLApp:
         filenames = []
         seen = set()
         for line in result.stdout.splitlines():
-            if not line.strip() or line.startswith("??"):
-                continue
-            unstaged = line[1]
-            if unstaged == " ":
+            if not line.strip():
                 continue
 
-            filename = line[3:]
+            status = line[:2]
+            if status == "??":
+                filename = line[3:]
+            elif status[1] != " ":
+                filename = line[3:]
+            else:
+                continue
+
             if " -> " in filename:
                 filename = filename.split(" -> ", 1)[1]
             if filename not in seen:
