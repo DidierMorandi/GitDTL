@@ -797,6 +797,9 @@ class GitDTLApp:
         ready = len(lines) == 0
         return modified, untracked, ready
 
+    def blocking_status_filenames(self) -> list[str]:
+        return self.extract_status_filenames(self.get_porcelain_status())
+
     def format_status_details(self) -> str:
         lines = self.get_porcelain_status()
         if not lines:
@@ -860,11 +863,19 @@ class GitDTLApp:
             if not self.ensure_git_repository():
                 return
             modified, untracked, ready = self.summarize_status()
+            blocking_files = self.blocking_status_filenames()
             content = (
                 f"Fichiers modifiés : {modified}\n\n"
                 f"Fichiers non suivis : {untracked}\n\n"
                 f"Prêt à publier : {'Oui' if ready else 'Non'}"
             )
+            if blocking_files:
+                content += (
+                    "\n\n"
+                    "Pourquoi non ?\n\n"
+                    "Ces éléments ne sont pas encore validés dans Git :\n\n"
+                    + "\n".join(f"- {filename}" for filename in blocking_files)
+                )
             self.show_text_window("État du projet", content)
         except Exception as exc:
             self.show_error(exc)
@@ -1034,11 +1045,33 @@ class GitDTLApp:
             result = self.run_git(["push"])
             if result.returncode == 0:
                 self.show_info(APP_NAME, "Publication réussie.")
+            elif self.is_missing_upstream_error(result):
+                branch = self.current_branch()
+                if not branch:
+                    self.show_command_error(result)
+                    return
+                upstream = self.run_git(["push", "--set-upstream", "origin", branch])
+                if upstream.returncode == 0:
+                    self.show_info(APP_NAME, "Publication réussie.")
+                else:
+                    self.show_error_message(APP_NAME, "Erreur détectée.")
+                    self.show_command_error(upstream)
             else:
                 self.show_error_message(APP_NAME, "Erreur détectée.")
                 self.show_command_error(result)
         except Exception as exc:
             self.show_error(exc)
+
+    def is_missing_upstream_error(self, result: subprocess.CompletedProcess[str]) -> bool:
+        output = f"{result.stdout}\n{result.stderr}".lower()
+        return "has no upstream branch" in output or "--set-upstream" in output
+
+    def current_branch(self) -> str | None:
+        result = self.run_git(["branch", "--show-current"])
+        if result.returncode != 0:
+            return None
+        branch = result.stdout.strip()
+        return branch or None
 
     def ensure_remote_repository(self) -> bool:
         remote = self.run_git(["remote", "get-url", "origin"])
