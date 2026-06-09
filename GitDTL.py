@@ -602,7 +602,7 @@ class GitDTLApp:
             ("11", "Diagnostic GitDTL (git status)", self.show_diagnostic, True),
             ("12", "Lire le journal (log)", self.show_log_window, True),
             ("13", "Visualiser le projet sur GitHub", self.open_project_on_github, True),
-            ("14", "Documentation (README.md)", self.show_documentation, False),
+            ("14", "Documentation", self.show_documentation, False),
             ("", "", None, False),
             ("0", "Quitter le menu", self.root.destroy, False),
         ]
