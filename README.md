@@ -64,6 +64,7 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 | 12 | Lire le journal | Affichage du fichier `logs/gitdtl.log` |
 | 13 | Visualiser le projet sur GitHub | Ouvre la page GitHub configurée |
 | 14 | Documentation | Affiche ce README en Markdown |
+| 15 | Commande magique : GitScan | Scanne un dossier choisi et affiche le bilan des dépôts Git détectés |
 
 ### Comportements notables
 
