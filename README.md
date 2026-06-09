@@ -83,6 +83,8 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 
 **Exécution silencieuse sous Windows.** Les commandes Git sont lancées sans ouvrir de fenêtre console parasite, y compris lors d'un `git push`.
 
+**Git du matin.** Un script compagnon peut afficher à l'ouverture de session Windows un petit bilan des dépôts Git détectés : modifications à enregistrer, changements à valider, commits à publier et temps estimé. Il s'appuie sur `DTLGitMorning.ps1`, lancé discrètement par `DTLGitMorning.vbs` via un raccourci placé dans le dossier de démarrage Windows. Le scan est en lecture seule : il utilise l'état Git local et ne modifie aucun dépôt. Pour tester sans redémarrer, lancez `DTLGitMorning.vbs`. Pour désactiver ce rappel, supprimez simplement le raccourci `DTL Git du matin.lnk` dans le dossier de démarrage Windows.
+
 **Création de version.** La fonction "Créer une version" enchaîne automatiquement : commit de version, création d'un tag annoté (`vX.Y.Z`), push du commit, push du tag.
 
 **Journal applicatif.** Chaque action Git et chaque erreur sont enregistrées dans `logs/gitdtl.log` avec horodatage. Le journal peut être consulté, effacé ou exporté depuis l'interface.

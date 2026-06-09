@@ -603,6 +603,7 @@ class GitDTLApp:
             ("12", "Lire le journal (log)", self.show_log_window, True),
             ("13", "Visualiser le projet sur GitHub", self.open_project_on_github, True),
             ("14", "Documentation", self.show_documentation, False),
+            ("15", "Commande magique : GitScan", self.show_git_scan, False),
             ("", "", None, False),
             ("0", "Quitter le menu", self.root.destroy, False),
         ]
@@ -1069,6 +1070,25 @@ class GitDTLApp:
         return subprocess.run(
             ["git", *args],
             cwd=self.project_dir,
+            text=True,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            creationflags=creationflags,
+        )
+
+    def run_git_in(self, directory: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
+        if shutil.which("git") is None:
+            raise RuntimeError("Git n'est pas installé ou n'est pas disponible dans le PATH Windows.")
+
+        command_for_log = "git " + " ".join(self._quote_for_log(arg) for arg in args)
+        self.show_command_status(f"{command_for_log}   [{directory}]")
+        self.log_info(f"{command_for_log} [{directory}]")
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        return subprocess.run(
+            ["git", *args],
+            cwd=directory,
             text=True,
             capture_output=True,
             encoding="utf-8",
@@ -1888,6 +1908,224 @@ class GitDTLApp:
             self.show_text_window("Diagnostic GitDTL", report)
         except Exception as exc:
             self.show_error(exc)
+
+    def show_git_scan(self) -> None:
+        try:
+            selected_root = filedialog.askdirectory(
+                title="Choisir le dossier racine à scanner avec GitScan",
+                initialdir=self.project_dir if self.project_selected else self.app_dir,
+            )
+            if not selected_root:
+                return
+
+            root_dir = Path(selected_root).resolve()
+            repositories = self.discover_git_repositories(root_dir)
+            if not repositories:
+                self.show_text_window(
+                    "Commande magique : GitScan",
+                    f"Aucun dépôt Git détecté dans :\n\n{root_dir}",
+                )
+                return
+
+            scan_results = []
+            action_sections = []
+
+            for repository in repositories:
+                summary, actions, diagnostics, metrics = self.git_scan_repository_summary(repository, root_dir)
+                scan_results.append((repository.name, summary, actions, diagnostics, metrics))
+                if actions:
+                    action_sections.append((repository.name, actions))
+
+            self.show_git_scan_report(root_dir, scan_results, action_sections)
+        except Exception as exc:
+            self.show_error(exc)
+
+    def show_git_scan_report(
+        self,
+        root_dir: Path,
+        scan_results: list[tuple[str, str, list[str], list[str], dict[str, int]]],
+        action_sections: list[tuple[str, list[str]]],
+    ) -> None:
+        window = self.make_text_window("Commande magique : GitScan", width=980, height=680)
+        text = window.text_widget
+        text.tag_configure("header", foreground=COLOR_BLUE, font=("Courier New", 13, "bold"), spacing3=8)
+        text.tag_configure("global_ok", foreground=COLOR_TEXT, font=("Courier New", 12, "bold"), spacing3=5)
+        text.tag_configure("global_warn", foreground=COLOR_WARNING, font=("Courier New", 12, "bold"), spacing3=5)
+        text.tag_configure("repo_title", foreground=COLOR_WARNING, font=("Courier New", 12, "bold"), spacing1=8, spacing3=4)
+        text.tag_configure("body", foreground=COLOR_TEXT, spacing2=1)
+        text.tag_configure("rule", foreground=COLOR_BORDER_LIGHT, spacing1=4, spacing3=6)
+
+        repositories_count = len(scan_results)
+        intervention_count = len(action_sections)
+        commits_to_publish = sum(metrics.get("ahead", 0) for *_rest, metrics in scan_results)
+        global_ok = intervention_count == 0
+
+        text.insert(tk.END, "GitScan - bilan des projets Git\n", "header")
+        text.insert(tk.END, f"\nDossier analysé : {root_dir}\n", "body")
+        if global_ok:
+            text.insert(tk.END, "\nÉtat général : OK\n", "global_ok")
+            text.insert(tk.END, f"{repositories_count} dépôts analysés\n", "body")
+            text.insert(tk.END, "Aucune action requise\n\n", "body")
+        else:
+            text.insert(tk.END, "\nÉtat général : ATTENTION\n", "global_warn")
+            text.insert(tk.END, f"{repositories_count} dépôts analysés\n", "body")
+            intervention_text = "nécessite une intervention" if intervention_count == 1 else "nécessitent une intervention"
+            commit_text = "commit en attente de publication" if commits_to_publish == 1 else "commits en attente de publication"
+            text.insert(tk.END, f"{intervention_count} {intervention_text}\n", "body")
+            text.insert(tk.END, f"{commits_to_publish} {commit_text}\n\n", "body")
+        text.insert(tk.END, "=" * 72 + "\n", "rule")
+
+        for _name, summary, _actions, _diagnostics, _metrics in scan_results:
+            lines = summary.splitlines()
+            if lines:
+                text.insert(tk.END, "\n" + lines[0] + "\n", "repo_title")
+                remaining = "\n".join(lines[1:])
+                if remaining:
+                    text.insert(tk.END, remaining + "\n", "body")
+            text.insert(tk.END, "-" * 72 + "\n", "rule")
+
+        text.insert(tk.END, "\nACTIONS À RÉALISER\n\n", "header")
+        if not action_sections:
+            text.insert(tk.END, "Aucune action urgente détectée.\n", "body")
+        else:
+            for name, actions in action_sections:
+                text.insert(tk.END, name + " :\n", "repo_title")
+                for index, action in enumerate(actions, start=1):
+                    text.insert(tk.END, f"{index}. {action}\n", "body")
+                text.insert(tk.END, "\n", "body")
+
+        text.config(state="disabled")
+
+    def discover_git_repositories(self, root_dir: Path) -> list[Path]:
+        repositories = []
+        ignored_dirs = {".git", "build", "dist", "__pycache__", "logs", "node_modules"}
+        try:
+            entries = sorted(root_dir.iterdir(), key=lambda path: path.name.lower())
+        except OSError as exc:
+            raise RuntimeError(f"Impossible de lire le dossier racine choisi : {exc}") from exc
+
+        for entry in entries:
+            if entry.name.startswith("."):
+                continue
+            if not entry.is_dir() or entry.name in ignored_dirs:
+                continue
+            if (entry / ".git").exists():
+                repositories.append(entry)
+                continue
+            repositories.extend(self.discover_nested_git_repositories(entry, ignored_dirs))
+        return repositories
+
+    def discover_nested_git_repositories(self, directory: Path, ignored_dirs: set[str]) -> list[Path]:
+        repositories = []
+        try:
+            for current, dirs, _files in os.walk(directory):
+                dirs[:] = [
+                    dirname
+                    for dirname in dirs
+                    if dirname not in ignored_dirs and not dirname.startswith(".")
+                ]
+                current_path = Path(current)
+                if (current_path / ".git").exists():
+                    repositories.append(current_path)
+                    dirs[:] = []
+        except OSError:
+            return repositories
+        return repositories
+
+    def git_scan_repository_summary(self, repository: Path, tools_dir: Path) -> tuple[str, list[str], list[str], dict[str, int]]:
+        status = self.run_git_in(repository, ["status", "--porcelain", "--branch"])
+        branch = self.run_git_in(repository, ["branch", "--show-current"])
+        remotes = self.run_git_in(repository, ["remote", "-v"])
+        log = self.run_git_in(repository, ["log", "--oneline", "-1"])
+
+        relative_name = repository.relative_to(tools_dir).as_posix()
+        if status.returncode != 0:
+            output = (status.stderr or status.stdout or "Erreur Git inconnue.").strip()
+            return (
+                f"{relative_name}\nÉtat : ERREUR\n{output}",
+                ["Ouvrir le diagnostic du dépôt ou vérifier manuellement Git."],
+                ["Erreur Git pendant l'analyse."],
+                {"ahead": 0},
+            )
+
+        lines = [line for line in status.stdout.splitlines() if line.strip()]
+        branch_line = next((line for line in lines if line.startswith("## ")), "## branche inconnue")
+        change_lines = [line for line in lines if not line.startswith("## ")]
+        untracked = sum(1 for line in change_lines if line.startswith("??"))
+        staged = sum(1 for line in change_lines if not line.startswith("??") and line[0] != " ")
+        unstaged = sum(1 for line in change_lines if not line.startswith("??") and len(line) > 1 and line[1] != " ")
+        remote_ok = "oui" if remotes.stdout.strip() else "non"
+        current_branch = branch.stdout.strip() or "inconnue"
+        last_commit = log.stdout.strip() or "Aucun commit"
+        ahead, behind = self.parse_branch_ahead_behind(branch_line)
+
+        diagnostics = []
+        actions = []
+        if untracked or unstaged:
+            diagnostics.append("Modifications locales non enregistrées.")
+            actions.append("Option 4 : enregistrer les modifications.")
+        if staged:
+            diagnostics.append("Changements prêts à être validés.")
+            actions.append("Option 6 : valider les changements déjà enregistrés.")
+        if behind:
+            diagnostics.append("Des commits distants sont absents du dossier local.")
+            actions.append("Option 10 : synchroniser depuis GitHub avant de publier.")
+        if ahead:
+            diagnostics.append("Un commit est en attente de publication." if ahead == 1 else f"{ahead} commits sont en attente de publication.")
+            actions.append("Option 7 : publier le commit sur GitHub." if ahead == 1 else "Option 7 : publier les commits sur GitHub.")
+        if remote_ok == "non":
+            diagnostics.append("Aucun dépôt GitHub distant n'est configuré.")
+            actions.append("Configurer le dépôt GitHub distant avant publication.")
+        if not change_lines and not ahead and not behind:
+            diagnostics.append("Aucune anomalie détectée.")
+
+        remote_symbol = "✓" if remote_ok == "oui" else "⚠"
+        untracked_symbol = "✓" if untracked == 0 else "⚠"
+        staged_symbol = "✓" if staged == 0 else "⚠"
+        unstaged_symbol = "✓" if unstaged == 0 else "⚠"
+        ahead_symbol = "✓" if ahead == 0 else "⚠"
+        behind_symbol = "✓" if behind == 0 else "⚠"
+
+        summary = (
+            f"{relative_name}\n"
+            f"Branche : {current_branch}\n"
+            f"{remote_symbol} Remote GitHub : {remote_ok}\n"
+            f"Dernier commit : {last_commit}\n"
+            f"{untracked_symbol} Fichiers non suivis : {untracked}\n"
+            f"{staged_symbol} Changements enregistrés pour commit : {staged}\n"
+            f"{unstaged_symbol} Changements non enregistrés : {unstaged}\n"
+            f"{ahead_symbol} Commits locaux à publier : {ahead}\n"
+            f"{behind_symbol} Commits distants à récupérer : {behind}\n"
+            "\n"
+            "Diagnostic :\n"
+            + "\n".join(f"- {diagnostic}" for diagnostic in diagnostics)
+        )
+        metrics = {
+            "ahead": ahead,
+            "behind": behind,
+            "untracked": untracked,
+            "staged": staged,
+            "unstaged": unstaged,
+            "has_changes": 1 if change_lines else 0,
+        }
+        return summary, actions, diagnostics, metrics
+
+    def parse_branch_ahead_behind(self, branch_line: str) -> tuple[int, int]:
+        ahead = 0
+        behind = 0
+        if "ahead " in branch_line:
+            try:
+                ahead_part = branch_line.split("ahead ", 1)[1].split(",", 1)[0].split("]", 1)[0]
+                ahead = int(ahead_part.strip())
+            except (ValueError, IndexError):
+                ahead = 0
+        if "behind " in branch_line:
+            try:
+                behind_part = branch_line.split("behind ", 1)[1].split(",", 1)[0].split("]", 1)[0]
+                behind = int(behind_part.strip())
+            except (ValueError, IndexError):
+                behind = 0
+        return ahead, behind
 
     def show_log_window(self) -> None:
         self._ensure_log()
