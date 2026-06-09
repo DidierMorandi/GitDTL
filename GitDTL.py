@@ -651,16 +651,15 @@ class GitDTLApp:
             label_button.grid(row=index, column=1, sticky="w")
             self.menu_buttons[number] = (number_button, label_button)
 
-        command_status_bar = tk.Frame(
+        self.command_status_bar = tk.Frame(
             shell,
             bg=COLOR_PANEL,
             padx=12,
             pady=7,
         )
-        command_status_bar.pack(fill="x", pady=(12, 0))
 
         tk.Label(
-            command_status_bar,
+            self.command_status_bar,
             text="Commande envoyée : ",
             bg=COLOR_PANEL,
             fg=COLOR_MUTED,
@@ -668,8 +667,8 @@ class GitDTLApp:
         ).pack(side="left")
 
         self.command_status_label = tk.Label(
-            command_status_bar,
-            text="aucune",
+            self.command_status_bar,
+            text="",
             anchor="w",
             bg=COLOR_PANEL,
             fg=COLOR_TEXT,
@@ -677,14 +676,14 @@ class GitDTLApp:
         )
         self.command_status_label.pack(side="left", fill="x", expand=True)
 
-        footer = tk.Label(
+        self.footer = tk.Label(
             shell,
             text="In Memoriam Jean-Claude BELLAMY (1937-2015)",
             bg=COLOR_BG,
             fg=COLOR_MUTED,
             font=("Courier New", 10),
         )
-        footer.pack(anchor="w", pady=(18, 0))
+        self.footer.pack(anchor="w", pady=(18, 0))
 
     def highlight_next_options(self, option_numbers: list[str]) -> None:
         self.highlighted_options = set(option_numbers)
@@ -700,11 +699,22 @@ class GitDTLApp:
         for button in self.menu_buttons.get(option_number, ()):
             button.configure(fg=COLOR_TEXT)
 
+    def show_command_status(self, command_for_log: str) -> None:
+        self.command_status_label.config(text=command_for_log)
+        if not self.command_status_bar.winfo_ismapped():
+            self.command_status_bar.pack(fill="x", pady=(12, 0), before=self.footer)
+
+    def clear_command_status(self) -> None:
+        self.command_status_label.config(text="")
+        if self.command_status_bar.winfo_ismapped():
+            self.command_status_bar.pack_forget()
+
     def menu_command(self, option_number: str, command, needs_git: bool):
         action = self.with_git_repository(command) if needs_git else command
 
         def wrapped_menu_command() -> None:
             self.clear_highlighted_option(option_number)
+            self.clear_command_status()
             action()
 
         return wrapped_menu_command
@@ -1053,7 +1063,7 @@ class GitDTLApp:
             raise RuntimeError("Git n'est pas installé ou n'est pas disponible dans le PATH Windows.")
 
         command_for_log = "git " + " ".join(self._quote_for_log(arg) for arg in args)
-        self.command_status_label.config(text=command_for_log)
+        self.show_command_status(command_for_log)
         self.log_info(command_for_log)
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         return subprocess.run(
