@@ -77,6 +77,12 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 
 **Avertissement avant publication.** Si des fichiers modifiés ne sont pas encore inclus dans un commit, GitDTL les liste et demande confirmation avant d'exécuter `git push`.
 
+**Guidage visuel.** Après une première activation, GitDTL met l'option 1 en surbrillance au lancement afin d'encourager le réflexe `git status`. Lorsque l'état du projet signale des éléments non validés, l'étape suivante est également suggérée : option 4 pour enregistrer les fichiers, ou option 6 si les changements sont déjà prêts à être validés.
+
+**Commande envoyée.** Une ligne discrète en bas de l'écran affiche la dernière commande Git réellement lancée par GitDTL. Le libellé reste en police normale, tandis que la commande est affichée en monospace vert DTL. Cette ligne est masquée tant qu'aucune commande Git n'a été envoyée, et elle est effacée lorsqu'une option sans commande Git est sélectionnée.
+
+**Exécution silencieuse sous Windows.** Les commandes Git sont lancées sans ouvrir de fenêtre console parasite, y compris lors d'un `git push`.
+
 **Création de version.** La fonction "Créer une version" enchaîne automatiquement : commit de version, création d'un tag annoté (`vX.Y.Z`), push du commit, push du tag.
 
 **Journal applicatif.** Chaque action Git et chaque erreur sont enregistrées dans `logs/gitdtl.log` avec horodatage. Le journal peut être consulté, effacé ou exporté depuis l'interface.
