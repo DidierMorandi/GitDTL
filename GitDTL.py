@@ -651,6 +651,32 @@ class GitDTLApp:
             label_button.grid(row=index, column=1, sticky="w")
             self.menu_buttons[number] = (number_button, label_button)
 
+        command_status_bar = tk.Frame(
+            shell,
+            bg=COLOR_PANEL,
+            padx=12,
+            pady=7,
+        )
+        command_status_bar.pack(fill="x", pady=(12, 0))
+
+        tk.Label(
+            command_status_bar,
+            text="Commande envoyée : ",
+            bg=COLOR_PANEL,
+            fg=COLOR_MUTED,
+            font=("Arial", 10),
+        ).pack(side="left")
+
+        self.command_status_label = tk.Label(
+            command_status_bar,
+            text="aucune",
+            anchor="w",
+            bg=COLOR_PANEL,
+            fg=COLOR_TEXT,
+            font=FONT_MONO_SMALL,
+        )
+        self.command_status_label.pack(side="left", fill="x", expand=True)
+
         footer = tk.Label(
             shell,
             text="In Memoriam Jean-Claude BELLAMY (1937-2015)",
@@ -1027,6 +1053,7 @@ class GitDTLApp:
             raise RuntimeError("Git n'est pas installé ou n'est pas disponible dans le PATH Windows.")
 
         command_for_log = "git " + " ".join(self._quote_for_log(arg) for arg in args)
+        self.command_status_label.config(text=command_for_log)
         self.log_info(command_for_log)
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         return subprocess.run(
