@@ -1528,10 +1528,8 @@ class GitDTLApp:
                     self.highlight_next_options(["1"])
                     self.show_info(APP_NAME, "Publication réussie.")
                 else:
-                    self.show_error_message(APP_NAME, "Erreur détectée.")
                     self.show_command_error(upstream)
             else:
-                self.show_error_message(APP_NAME, "Erreur détectée.")
                 self.show_command_error(result)
         except Exception as exc:
             self.show_error(exc)
