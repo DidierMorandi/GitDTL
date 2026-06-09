@@ -1028,6 +1028,7 @@ class GitDTLApp:
 
         command_for_log = "git " + " ".join(self._quote_for_log(arg) for arg in args)
         self.log_info(command_for_log)
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         return subprocess.run(
             ["git", *args],
             cwd=self.project_dir,
@@ -1036,6 +1037,7 @@ class GitDTLApp:
             encoding="utf-8",
             errors="replace",
             check=False,
+            creationflags=creationflags,
         )
 
     def _quote_for_log(self, value: str) -> str:
