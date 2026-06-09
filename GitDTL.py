@@ -363,6 +363,7 @@ class GitDTLApp:
     def show_welcome_if_first_use(self) -> None:
         cookie_path = self.welcome_cookie_path()
         if cookie_path.exists():
+            self.highlight_initial_status_option()
             return
 
         self.clear_current_project()
@@ -385,6 +386,9 @@ class GitDTLApp:
         except OSError as exc:
             self.log_error(f"Impossible d'écrire le cookie de bienvenue : {exc}")
         self.prompt_project_to_manage()
+
+    def highlight_initial_status_option(self) -> None:
+        self.highlight_next_options(["1"])
 
     def load_help_texts(self) -> dict[str, str]:
         help_texts = DEFAULT_HELP_TEXTS.copy()
@@ -1089,6 +1093,14 @@ class GitDTLApp:
     def blocking_status_filenames(self) -> list[str]:
         return self.extract_status_filenames(self.get_porcelain_status())
 
+    def next_status_option(self) -> str | None:
+        lines = self.get_porcelain_status()
+        if any(line.startswith("??") or (len(line) > 1 and line[1] != " ") for line in lines):
+            return "4"
+        if any(line and line[0] != " " for line in lines):
+            return "6"
+        return None
+
     def format_status_details(self) -> str:
         lines = self.get_porcelain_status()
         if not lines:
@@ -1165,6 +1177,9 @@ class GitDTLApp:
                     "Ces éléments ne sont pas encore validés dans Git :\n\n"
                     + "\n".join(f"- {filename}" for filename in blocking_files)
                 )
+                next_option = self.next_status_option()
+                if next_option:
+                    self.highlight_next_options([next_option])
             self.show_text_window("État du projet", content)
             self.offer_common_python_ignores()
         except Exception as exc:
