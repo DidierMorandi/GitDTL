@@ -2291,12 +2291,33 @@ class GitDTLApp:
         content: str,
         scroll_to_end: bool = False,
         text_color: str = COLOR_TEXT,
+        selectable: bool = False,
     ) -> None:
         window = self.make_text_window(title, text_color=text_color)
-        window.text_widget.insert("1.0", content)
+        text = window.text_widget
+        text.insert("1.0", content)
         if scroll_to_end:
-            window.text_widget.see("end")
-        window.text_widget.config(state="disabled")
+            text.see("end")
+        if selectable:
+            self.make_text_selectable_readonly(text)
+        else:
+            text.config(state="disabled")
+
+    def make_text_selectable_readonly(self, text: tk.Text) -> None:
+        def block_edit(event) -> str | None:
+            is_control = bool(event.state & 0x4)
+            key = event.keysym.lower()
+            if is_control and key == "c":
+                return None
+            if is_control and key == "a":
+                text.tag_add("sel", "1.0", "end-1c")
+                return "break"
+            return "break"
+
+        text.bind("<Key>", block_edit)
+        text.bind("<<Cut>>", lambda _event: "break")
+        text.bind("<<Paste>>", lambda _event: "break")
+        text.focus_set()
 
     def show_command_error(self, result: subprocess.CompletedProcess[str]) -> None:
         output = "\n".join(part.strip() for part in [result.stdout, result.stderr] if part.strip())
@@ -2305,7 +2326,7 @@ class GitDTLApp:
         advice = self.expert_advice(content)
         if advice:
             content += "\n\n" + "=" * 72 + "\n\nConseil du système expert :\n\n" + advice
-        self.show_text_window("Erreur détectée", content, text_color=COLOR_ERROR)
+        self.show_text_window("Erreur détectée", content, text_color=COLOR_ERROR, selectable=True)
 
     def show_error(self, exc: Exception) -> None:
         self.log_error(str(exc))
