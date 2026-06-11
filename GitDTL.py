@@ -608,7 +608,7 @@ class GitDTLApp:
             ("10", "Synchroniser le projet depuis GitHub (git pull)", self.pull_from_github, True),
             ("11", "Diagnostic technique du dépôt (git status)", self.show_diagnostic, True),
             ("12", "Lire le journal (log)", self.show_log_window, True),
-            ("13", "Visualiser le projet sur GitHub", self.open_project_on_github, True),
+            ("13", "Voir le projet dans GitHub", self.open_project_on_github, True),
             ("14", "Documentation", self.show_documentation, False),
             ("15", "Commande magique : GitScan", self.show_git_scan, False),
             ("16", "Cloner un dépôt GitHub (git clone)", self.clone_repository, False),
@@ -1663,7 +1663,7 @@ class GitDTLApp:
                 return
             result = self.run_git(["push"])
             if result.returncode == 0:
-                self.highlight_next_options(["1"])
+                self.highlight_next_options(["13"])
                 self.show_info(APP_NAME, "Publication réussie.")
             elif self.is_missing_upstream_error(result):
                 branch = self.current_branch()
@@ -1672,7 +1672,7 @@ class GitDTLApp:
                     return
                 upstream = self.run_git(["push", "--set-upstream", "origin", branch])
                 if upstream.returncode == 0:
-                    self.highlight_next_options(["1"])
+                    self.highlight_next_options(["13"])
                     self.show_info(APP_NAME, "Publication réussie.")
                 else:
                     self.show_command_error(upstream)
@@ -1774,6 +1774,7 @@ class GitDTLApp:
             if push_tag.returncode != 0:
                 self.show_command_error(push_tag)
                 return
+            self.highlight_next_options(["13"])
             self.show_info(APP_NAME, f"Version {tag} créée et publiée.")
         except Exception as exc:
             self.show_error(exc)

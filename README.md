@@ -62,7 +62,7 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 | 10 | Synchroniser depuis GitHub | `git pull` |
 | 11 | Diagnostic technique du dépôt | `git status` + branche + remote + dernier commit |
 | 12 | Lire le journal | Affichage du fichier `logs/gitdtl.log` |
-| 13 | Visualiser le projet sur GitHub | Ouvre la page GitHub configurée |
+| 13 | Voir le projet dans GitHub | Ouvre la page GitHub configurée |
 | 14 | Documentation | Affiche ce README en Markdown |
 | 15 | Commande magique : GitScan | Scanne un dossier choisi et affiche le bilan des dépôts Git détectés |
 | 16 | Cloner un dépôt GitHub | `git clone` |
@@ -79,7 +79,7 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 
 **Avertissement avant publication.** Si des fichiers modifiés ne sont pas encore inclus dans un commit, GitDTL les liste et demande confirmation avant d'exécuter `git push`.
 
-**Guidage visuel.** Après une première activation, GitDTL met l'option 1 en surbrillance au lancement afin d'encourager le réflexe `git status`. Lorsque l'état du projet signale des éléments non validés, l'étape suivante est également suggérée : option 4 pour enregistrer les fichiers, ou option 6 si les changements sont déjà prêts à être validés.
+**Guidage visuel.** Après une première activation, GitDTL met l'option 1 en surbrillance au lancement afin d'encourager le réflexe `git status`. Lorsque l'état du projet signale des éléments non validés, l'étape suivante est également suggérée : option 4 pour enregistrer les fichiers, ou option 6 si les changements sont déjà prêts à être validés. Après une publication réussie, GitDTL met l'option 13 en surbrillance pour ouvrir le projet dans GitHub.
 
 **Commande envoyée.** Une ligne discrète en bas de l'écran affiche la dernière commande Git réellement lancée par GitDTL. Le libellé reste en police normale, tandis que la commande est affichée en monospace vert DTL. Cette ligne est masquée tant qu'aucune commande Git n'a été envoyée, et elle est effacée lorsqu'une option sans commande Git est sélectionnée.
 
