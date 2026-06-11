@@ -2042,6 +2042,8 @@ class GitDTLApp:
         text.tag_configure("global_warn", foreground=COLOR_WARNING, font=("Courier New", 12, "bold"), spacing3=5)
         text.tag_configure("repo_title", foreground=COLOR_WARNING, font=("Courier New", 12, "bold"), spacing1=8, spacing3=4)
         text.tag_configure("body", foreground=COLOR_TEXT, spacing2=1)
+        text.tag_configure("action_required", foreground="#ff0000", font=("Courier New", 10, "bold"), spacing2=1)
+        text.tag_configure("action_required_title", foreground="#ff0000", font=("Courier New", 12, "bold"), spacing1=8, spacing3=4)
         text.tag_configure("rule", foreground=COLOR_BORDER_LIGHT, spacing1=4, spacing3=6)
 
         repositories_count = len(scan_results)
@@ -2064,13 +2066,17 @@ class GitDTLApp:
             text.insert(tk.END, f"{commits_to_publish} {commit_text}\n\n", "body")
         text.insert(tk.END, "=" * 72 + "\n", "rule")
 
-        for _name, summary, _actions, _diagnostics, _metrics in scan_results:
+        for _name, summary, actions, _diagnostics, _metrics in scan_results:
             lines = summary.splitlines()
             if lines:
                 text.insert(tk.END, "\n" + lines[0] + "\n", "repo_title")
                 remaining = "\n".join(lines[1:])
                 if remaining:
                     text.insert(tk.END, remaining + "\n", "body")
+                if actions:
+                    text.insert(tk.END, "\nActions à réaliser :\n", "action_required_title")
+                    for index, action in enumerate(actions, start=1):
+                        text.insert(tk.END, f"{index}. {action}\n", "action_required")
             text.insert(tk.END, "-" * 72 + "\n", "rule")
 
         text.insert(tk.END, "\nACTIONS À RÉALISER\n\n", "header")
@@ -2078,9 +2084,9 @@ class GitDTLApp:
             text.insert(tk.END, "Aucune action urgente détectée.\n", "body")
         else:
             for name, actions in action_sections:
-                text.insert(tk.END, name + " :\n", "repo_title")
+                text.insert(tk.END, name + " :\n", "action_required_title")
                 for index, action in enumerate(actions, start=1):
-                    text.insert(tk.END, f"{index}. {action}\n", "body")
+                    text.insert(tk.END, f"{index}. {action}\n", "action_required")
                 text.insert(tk.END, "\n", "body")
 
         text.config(state="disabled")
