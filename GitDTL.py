@@ -596,7 +596,7 @@ class GitDTLApp:
         menu_items.grid_columnconfigure(0, minsize=28)
 
         actions = [
-            ("1", "État du projet (git status)", self.show_status, False),
+            ("1", "État du projet : que faire maintenant ? (git status)", self.show_status, False),
             ("2", "Voir les modifications (git diff)", self.show_diff, True),
             ("3", "Ajouter un fichier au projet (git add)", self.add_file, True),
             ("4", "Enregistrer un fichier modifié dans le projet (git add)", self.update_file, True),
@@ -606,13 +606,12 @@ class GitDTLApp:
             ("8", "Créer une version (git tag)", self.create_release, True),
             ("9", "Historique des versions (git log)", self.show_history, True),
             ("10", "Synchroniser le projet depuis GitHub (git pull)", self.pull_from_github, True),
-            ("11", "Diagnostic GitDTL (git status)", self.show_diagnostic, True),
+            ("11", "Diagnostic technique du dépôt (git status)", self.show_diagnostic, True),
             ("12", "Lire le journal (log)", self.show_log_window, True),
             ("13", "Visualiser le projet sur GitHub", self.open_project_on_github, True),
             ("14", "Documentation", self.show_documentation, False),
             ("15", "Commande magique : GitScan", self.show_git_scan, False),
             ("16", "Cloner un dépôt GitHub (git clone)", self.clone_repository, False),
-            ("", "", None, False),
             ("0", "Quitter le menu", self.root.destroy, False),
         ]
 

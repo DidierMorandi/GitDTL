@@ -50,7 +50,7 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 
 | N° | Action | Commande Git équivalente |
 |----|--------|--------------------------|
-| 1 | État du projet | `git status` |
+| 1 | État du projet : que faire maintenant ? | `git status` |
 | 2 | Voir les modifications | `git diff` |
 | 3 | Ajouter un fichier au projet | `git add` |
 | 4 | Enregistrer un fichier modifié | `git add` |
@@ -60,7 +60,7 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 | 8 | Créer une version | `git tag` + `git push` |
 | 9 | Historique des versions | `git log` |
 | 10 | Synchroniser depuis GitHub | `git pull` |
-| 11 | Diagnostic GitDTL | `git status` + branche + remote + dernier commit |
+| 11 | Diagnostic technique du dépôt | `git status` + branche + remote + dernier commit |
 | 12 | Lire le journal | Affichage du fichier `logs/gitdtl.log` |
 | 13 | Visualiser le projet sur GitHub | Ouvre la page GitHub configurée |
 | 14 | Documentation | Affiche ce README en Markdown |
