@@ -65,6 +65,7 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 | 13 | Visualiser le projet sur GitHub | Ouvre la page GitHub configurée |
 | 14 | Documentation | Affiche ce README en Markdown |
 | 15 | Commande magique : GitScan | Scanne un dossier choisi et affiche le bilan des dépôts Git détectés |
+| 16 | Cloner un dépôt GitHub | `git clone` |
 
 ### Comportements notables
 
@@ -114,7 +115,7 @@ Indiquez le numéro de version au format X.Y.Z.
 Le préfixe v sera ajouté automatiquement.
 ```
 
-Les clés disponibles sont : `create_git_repository`, `remove_file_action`, `commit_message`, `release_version`, `release_confirmation`, `clear_log`, `publish_with_uncommitted_changes`, `github_remote_url`.
+Les clés disponibles sont : `create_git_repository`, `remove_file_action`, `commit_message`, `release_version`, `release_confirmation`, `clear_log`, `publish_with_uncommitted_changes`, `github_remote_url`, `clone_repository_url`.
 
 Si le fichier est absent ou si une clé n'est pas définie, le texte d'aide par défaut intégré au script est utilisé.
 

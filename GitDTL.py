@@ -72,6 +72,13 @@ DEFAULT_HELP_TEXTS = {
         "- https://github.com/compte/projet.git\n"
         "- git@github.com:compte/projet.git"
     ),
+    "clone_repository_url": (
+        "Cette action crée une copie locale d'un dépôt Git déjà existant.\n\n"
+        "Copiez l'adresse du dépôt GitHub, par exemple :\n"
+        "- https://github.com/compte/projet.git\n"
+        "- git@github.com:compte/projet.git\n\n"
+        "GitDTL vous demandera ensuite dans quel dossier parent créer le projet."
+    ),
     "common_python_ignores": (
         "Ces dossiers sont produits automatiquement par Python ou par GitDTL.\n\n"
         "Les ajouter à .gitignore évite qu'ils apparaissent dans les fichiers non suivis."
@@ -604,6 +611,7 @@ class GitDTLApp:
             ("13", "Visualiser le projet sur GitHub", self.open_project_on_github, True),
             ("14", "Documentation", self.show_documentation, False),
             ("15", "Commande magique : GitScan", self.show_git_scan, False),
+            ("16", "Cloner un dépôt GitHub (git clone)", self.clone_repository, False),
             ("", "", None, False),
             ("0", "Quitter le menu", self.root.destroy, False),
         ]
@@ -1018,6 +1026,87 @@ class GitDTLApp:
         if not selected:
             return
         self.set_project_dir(selected)
+
+    def clone_repository(self) -> None:
+        remote_url = self.ask_text(
+            "Cloner un dépôt GitHub",
+            "Adresse du dépôt GitHub à cloner :",
+            self.help_text("clone_repository_url"),
+        )
+        if not remote_url:
+            return
+
+        parent_dir = filedialog.askdirectory(
+            title="Choisir le dossier où créer la copie locale",
+            initialdir=self.project_dir if self.project_selected else self.app_dir,
+        )
+        if not parent_dir:
+            return
+
+        parent_path = Path(parent_dir).resolve()
+        before_dirs = self.git_directories_in(parent_path)
+        result = self.run_git_in(parent_path, ["clone", remote_url])
+        if result.returncode != 0:
+            self.show_command_error(result)
+            return
+
+        cloned_path = self.detect_cloned_repository(parent_path, before_dirs, remote_url)
+        if cloned_path is not None:
+            self.set_project_dir(cloned_path)
+            self.highlight_next_options(["1"])
+            self.show_info(
+                APP_NAME,
+                "Dépôt cloné avec succès.\n\n"
+                f"Projet courant :\n{self.project_dir}",
+            )
+            return
+
+        self.show_info(
+            APP_NAME,
+            "Dépôt cloné avec succès.\n\n"
+            "GitDTL n'a pas identifié automatiquement le dossier créé. "
+            "Utilisez le bouton Changer de projet pour le sélectionner.",
+        )
+
+    def git_directories_in(self, parent_path: Path) -> set[Path]:
+        if not parent_path.exists():
+            return set()
+        return {
+            child.resolve()
+            for child in parent_path.iterdir()
+            if child.is_dir()
+        }
+
+    def detect_cloned_repository(self, parent_path: Path, before_dirs: set[Path], remote_url: str) -> Path | None:
+        after_dirs = self.git_directories_in(parent_path)
+        new_git_dirs = [
+            directory
+            for directory in after_dirs - before_dirs
+            if (directory / ".git").exists()
+        ]
+        if len(new_git_dirs) == 1:
+            return new_git_dirs[0]
+
+        expected_name = self.repository_name_from_url(remote_url)
+        if expected_name:
+            expected_path = parent_path / expected_name
+            if (expected_path / ".git").exists():
+                return expected_path.resolve()
+        return None
+
+    def repository_name_from_url(self, remote_url: str) -> str | None:
+        cleaned_url = remote_url.strip().rstrip("/")
+        if not cleaned_url:
+            return None
+        if cleaned_url.endswith(".git"):
+            cleaned_url = cleaned_url[:-4]
+        if "://" not in cleaned_url and ":" in cleaned_url:
+            path_part = cleaned_url.rsplit(":", 1)[1]
+        else:
+            path_part = cleaned_url
+        name = path_part.rsplit("/", 1)[-1]
+        name = name.strip()
+        return name or None
 
     def prompt_project_to_manage(self) -> bool:
         choice = self.ask_choice(
