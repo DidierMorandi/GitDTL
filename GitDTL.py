@@ -12,7 +12,7 @@ from tkinter import filedialog, ttk
 
 
 APP_NAME = "GitDTL"
-APP_VERSION = "v1.0.0"
+APP_VERSION = "v1.0-2"
 APP_SUBTITLE = "Git simplifié pour les projets DTL"
 HELP_FILE = "aide.md"
 EXPERT_FILE = "expert_git.md"
@@ -537,7 +537,7 @@ class GitDTLApp:
 
         tk.Label(
             title_block,
-            text=f"{APP_NAME} v1.0.0",
+            text=f"{APP_NAME} {APP_VERSION}",
             bg=COLOR_BG,
             fg=COLOR_BLUE,
             font=FONT_TITLE,
