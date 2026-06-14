@@ -158,3 +158,19 @@ MIT — voir le fichier `LICENSE`.
 ---
 
 *In Memoriam Jean-Claude BELLAMY (1937-2015)*
+
+## Update - 14 June 2026
+
+The current code reports `APP_VERSION = "v1.0-3"` in `GitDTL.py`.
+
+New and confirmed behavior:
+
+- First-run welcome window, remembered through a small local marker file.
+- Smarter detection of the initial project directory.
+- Expert advice loaded from local rules when available.
+- Highlighting of the next useful actions after reading the Git status.
+- Offer to add common Python folders to `.gitignore` when they appear as untracked.
+- `GitScan` discovers Git repositories under a root folder and displays a concise summary.
+- The GitHub clone option detects the cloned folder and offers to manage it immediately.
+- Local log can be viewed, cleared, or exported from the interface.
+- HTML documentation `GitDTL_Manuel_Utilisateur.html` is present in the repository.
