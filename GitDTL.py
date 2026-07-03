@@ -12,7 +12,7 @@ from tkinter import filedialog, ttk
 
 
 APP_NAME = "GitDTL"
-APP_VERSION = "v1.0-8"
+APP_VERSION = "v1.0-10"
 APP_SUBTITLE = "Git simplifié pour les projets DTL"
 HELP_FILE = "aide.md"
 EXPERT_FILE = "expert_git.md"
@@ -1700,6 +1700,11 @@ class GitDTLApp:
             return
 
         diff_window = None
+
+        def close_diff_window() -> None:
+            if diff_window is not None and diff_window.winfo_exists():
+                diff_window.destroy()
+
         try:
             diff_content = self.build_diff_content()
             if diff_content is None:
@@ -1728,17 +1733,22 @@ class GitDTLApp:
         if diff_window is not None and diff_window.winfo_exists():
             diff_window.attributes("-topmost", False)
         if not message:
+            close_diff_window()
             return
         try:
             result = self.run_git(["commit", "-m", message])
             if result.returncode == 0:
+                close_diff_window()
                 self.highlight_next_options(["7"])
                 self.show_info(APP_NAME, "Changements validés avec succès.")
             elif self.is_nothing_to_commit(result):
+                close_diff_window()
                 self.show_info(APP_NAME, "Aucun changement à valider.\n\nLe projet est déjà à jour.")
             else:
+                close_diff_window()
                 self.show_command_error(result)
         except Exception as exc:
+            close_diff_window()
             self.show_error(exc)
 
     def is_nothing_to_commit(self, result: subprocess.CompletedProcess[str]) -> bool:
