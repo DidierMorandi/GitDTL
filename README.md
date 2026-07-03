@@ -85,6 +85,8 @@ GitDTL starts from the current folder. The managed project folder can be changed
 
 **File removal choices.** When removing a file or folder, GitDTL can either delete it from disk and Git, or stop tracking it while keeping it locally and adding it to `.gitignore`.
 
+**README reminder before commit.** Before committing, GitDTL asks whether the English documentation in `README.md` should be updated. If the user chooses yes, GitDTL opens `README.md`, waits for confirmation after the file is saved, and automatically runs `git add README.md` so the English documentation is included in the commit.
+
 **Commit assistance.** Before option 6 asks for the commit message, GitDTL displays the current diff and status summary in a separate visible window. This helps the user write a meaningful commit message. The diff window stays visible while the commit-message prompt is open.
 
 **Publish warning.** If local changes are not yet committed, GitDTL lists them and asks for confirmation before running `git push`.

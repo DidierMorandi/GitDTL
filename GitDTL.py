@@ -12,7 +12,7 @@ from tkinter import filedialog, ttk
 
 
 APP_NAME = "GitDTL"
-APP_VERSION = "v1.0-7"
+APP_VERSION = "v1.0-8"
 APP_SUBTITLE = "Git simplifié pour les projets DTL"
 HELP_FILE = "aide.md"
 EXPERT_FILE = "expert_git.md"
@@ -1649,7 +1649,56 @@ class GitDTLApp:
                 handle.write(f"{pattern}\n")
         self.log_info(f"Ajout dans .gitignore : {', '.join(missing_patterns)}")
 
+    def offer_readme_update_before_commit(self) -> bool:
+        readme_path = self.project_dir / "README.md"
+        choice = self.ask_choice(
+            "Documentation anglaise",
+            "Faut-il mettre à jour README.md avant cette validation ?",
+            [
+                ("Oui, ouvrir README.md", "update"),
+                ("Non, continuer", "skip"),
+                ("Annuler", None),
+            ],
+            "README.md est la documentation anglaise du projet.\n\n"
+            "Si cette validation change le comportement de GitDTL, mettez README.md à jour, "
+            "enregistrez le fichier, puis confirmez pour l'ajouter automatiquement au commit.",
+        )
+        if choice is None:
+            return False
+        if choice != "update":
+            return True
+
+        if not readme_path.exists():
+            self.show_warning(APP_NAME, f"README.md introuvable dans :\n\n{self.project_dir}")
+            return False
+
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        subprocess.Popen(["notepad.exe", str(readme_path)], creationflags=creationflags)
+        confirmed = self.ask_choice(
+            "Ajouter README.md",
+            "Après avoir sauvegardé README.md, l'ajouter automatiquement au commit ?",
+            [
+                ("Oui, ajouter README.md", True),
+                ("Annuler", False),
+            ],
+            "GitDTL va lancer git add README.md pour inclure la documentation anglaise "
+            "dans la prochaine validation.",
+            kind="warning",
+        )
+        if not confirmed:
+            return False
+
+        result = self.run_git(["add", "--", "README.md"])
+        if result.returncode != 0:
+            self.show_command_error(result)
+            return False
+        self.show_info(APP_NAME, "README.md sera inclus dans la validation.")
+        return True
+
     def commit_changes(self) -> None:
+        if not self.offer_readme_update_before_commit():
+            return
+
         diff_window = None
         try:
             diff_content = self.build_diff_content()
