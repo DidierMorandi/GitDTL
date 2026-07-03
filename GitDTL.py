@@ -12,7 +12,7 @@ from tkinter import filedialog, ttk
 
 
 APP_NAME = "GitDTL"
-APP_VERSION = "v1.0-3"
+APP_VERSION = "v1.0-6"
 APP_SUBTITLE = "Git simplifié pour les projets DTL"
 HELP_FILE = "aide.md"
 EXPERT_FILE = "expert_git.md"
@@ -738,12 +738,16 @@ class GitDTLApp:
 
         return wrapped_command
 
-    def center_window(self, window: tk.Toplevel) -> None:
+    def center_window(self, window: tk.Toplevel, x_offset: int = 0, y_offset: int = 0) -> None:
         window.update_idletasks()
         width = window.winfo_width()
         height = window.winfo_height()
-        x = (window.winfo_screenwidth() - width) // 2
-        y = (window.winfo_screenheight() - height) // 2
+        screen_width = window.winfo_screenwidth()
+        screen_height = window.winfo_screenheight()
+        x = (screen_width - width) // 2 + x_offset
+        y = (screen_height - height) // 2 + y_offset
+        x = max(0, min(x, screen_width - width))
+        y = max(0, min(y, screen_height - height))
         window.geometry(f"{width}x{height}+{x}+{y}")
 
     def show_help(self, title: str, content: str) -> None:
@@ -821,7 +825,15 @@ class GitDTLApp:
     def show_error_message(self, title: str, content: str) -> None:
         self.show_message(title, content, "error")
 
-    def ask_text(self, title: str, prompt: str, help_text: str) -> str | None:
+    def ask_text(
+        self,
+        title: str,
+        prompt: str,
+        help_text: str,
+        x_offset: int = 0,
+        y_offset: int = 0,
+        modal: bool = True,
+    ) -> str | None:
         answer = {"value": None}
 
         window = tk.Toplevel(self.root)
@@ -919,8 +931,9 @@ class GitDTLApp:
         window.protocol("WM_DELETE_WINDOW", cancel)
         entry.bind("<Return>", lambda _event: submit())
         entry.focus_set()
-        self.center_window(window)
-        window.grab_set()
+        self.center_window(window, x_offset=x_offset, y_offset=y_offset)
+        if modal:
+            window.grab_set()
         window.wait_window()
         return answer["value"]
 
@@ -1380,26 +1393,31 @@ class GitDTLApp:
         patterns = [f"/{filename}" for filename in filenames]
         return [pattern for pattern in patterns if pattern not in existing]
 
+    def build_diff_content(self) -> str | None:
+        status_content = self.format_status_details()
+        unstaged_diff = self.run_git(["diff"])
+        staged_diff = self.run_git(["diff", "--cached"])
+
+        if unstaged_diff.returncode != 0:
+            self.show_command_error(unstaged_diff)
+            return None
+        if staged_diff.returncode != 0:
+            self.show_command_error(staged_diff)
+            return None
+
+        sections = ["Résumé :", status_content or "Aucune modification détectée."]
+        if unstaged_diff.stdout.strip():
+            sections.extend(["", "Détail des modifications non ajoutées :", unstaged_diff.stdout.strip()])
+        if staged_diff.stdout.strip():
+            sections.extend(["", "Détail des modifications ajoutées au prochain commit :", staged_diff.stdout.strip()])
+
+        return "\n".join(sections)
+
     def show_diff(self) -> None:
         try:
-            status_content = self.format_status_details()
-            unstaged_diff = self.run_git(["diff"])
-            staged_diff = self.run_git(["diff", "--cached"])
-
-            if unstaged_diff.returncode != 0:
-                self.show_command_error(unstaged_diff)
+            content = self.build_diff_content()
+            if content is None:
                 return
-            if staged_diff.returncode != 0:
-                self.show_command_error(staged_diff)
-                return
-
-            sections = ["Résumé :", status_content]
-            if unstaged_diff.stdout.strip():
-                sections.extend(["", "Détail des modifications non ajoutées :", unstaged_diff.stdout.strip()])
-            if staged_diff.stdout.strip():
-                sections.extend(["", "Détail des modifications ajoutées au prochain commit :", staged_diff.stdout.strip()])
-
-            content = "\n".join(sections)
             self.show_text_window("Voir les modifications", content, scroll_to_end=True)
         except Exception as exc:
             self.show_error(exc)
@@ -1632,11 +1650,34 @@ class GitDTLApp:
         self.log_info(f"Ajout dans .gitignore : {', '.join(missing_patterns)}")
 
     def commit_changes(self) -> None:
+        diff_window = None
+        try:
+            diff_content = self.build_diff_content()
+            if diff_content is None:
+                return
+            diff_window = self.show_text_window(
+                "Modifications à valider",
+                diff_content,
+                scroll_to_end=True,
+                selectable=True,
+                x_offset=-320,
+                y_offset=-80,
+                keep_on_top=True,
+            )
+        except Exception as exc:
+            self.show_error(exc)
+            return
+
         message = self.ask_text(
             "Valider les changements",
             "Description du changement :",
             self.help_text("commit_message"),
+            x_offset=320,
+            y_offset=220,
+            modal=False,
         )
+        if diff_window is not None and diff_window.winfo_exists():
+            diff_window.attributes("-topmost", False)
         if not message:
             return
         try:
@@ -2387,7 +2428,10 @@ class GitDTLApp:
         scroll_to_end: bool = False,
         text_color: str = COLOR_TEXT,
         selectable: bool = False,
-    ) -> None:
+        x_offset: int = 0,
+        y_offset: int = 0,
+        keep_on_top: bool = False,
+    ) -> tk.Toplevel:
         window = self.make_text_window(title, text_color=text_color)
         text = window.text_widget
         text.insert("1.0", content)
@@ -2397,6 +2441,11 @@ class GitDTLApp:
             self.make_text_selectable_readonly(text)
         else:
             text.config(state="disabled")
+        self.center_window(window, x_offset=x_offset, y_offset=y_offset)
+        if keep_on_top:
+            window.attributes("-topmost", True)
+            window.lift()
+        return window
 
     def make_text_selectable_readonly(self, text: tk.Text) -> None:
         def block_edit(event) -> str | None:

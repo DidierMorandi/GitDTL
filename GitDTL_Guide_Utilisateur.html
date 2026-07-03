@@ -1,12 +1,144 @@
 <!DOCTYPE html>
-<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>GitDTL — Guide utilisateur</title>
-<style>@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');:root{--bg:#0f1117;--surface:#181c27;--border:#252b3b;--accent:#58a6ff;--dim:#1a3a5c;--text:#c9d1e0;--muted:#5a6580;--heading:#e8edf5;--code:#0a0e17;--code-border:#1a2030;--sidebar:260px}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;line-height:1.7;display:flex;min-height:100vh}nav{position:fixed;top:0;left:0;width:var(--sidebar);height:100vh;background:var(--surface);border-right:1px solid var(--border);padding:28px 0 40px}nav .logo{font:600 11px 'IBM Plex Mono',monospace;color:var(--accent);letter-spacing:2px;text-transform:uppercase;padding:0 20px 20px;border-bottom:1px solid var(--border);margin-bottom:16px}nav .logo span{display:block;color:var(--muted);font-size:9px;margin-top:4px}nav a{display:block;color:var(--muted);text-decoration:none;font:12px 'IBM Plex Mono',monospace;padding:5px 20px}main{margin-left:var(--sidebar);padding:56px 64px 100px;max-width:1160px;width:100%}h1{font:600 28px 'IBM Plex Mono',monospace;color:var(--heading);margin-bottom:12px}.accent{color:var(--accent)}.doc-header{margin-bottom:48px;padding-bottom:32px;border-bottom:1px solid var(--border)}.pill{font:11px 'IBM Plex Mono',monospace;padding:3px 10px;border-radius:3px;background:var(--code);border:1px solid var(--code-border);color:var(--muted);display:inline-block;margin:12px 8px 0 0}h2{font:600 13px 'IBM Plex Mono',monospace;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin:52px 0 20px;padding-bottom:10px;border-bottom:1px solid var(--border)}.section-block{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:4px;padding:20px 24px;margin:24px 0}h3{font:600 15px 'IBM Plex Mono',monospace;color:var(--accent);margin:0 0 8px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin:6px 0}code{font-family:'IBM Plex Mono',monospace;background:var(--code);border:1px solid var(--code-border);border-radius:3px;color:#93c5fd;padding:1px 6px}.note{background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.25);padding:14px 16px;border-radius:4px;margin:18px 0}</style></head>
-<body><nav><div class="logo">GitDTL<span>Guide utilisateur</span></div><a href="#objectif">Objectif</a><a href="#choisir">Choisir un projet</a><a href="#routine">Routine Git</a><a href="#publier">Publier</a><a href="#versions">Versions</a><a href="#journal">Journal</a></nav>
-<main><header class="doc-header"><h1><span class="accent">GitDTL</span> — Guide utilisateur</h1><p>Guide de gestion quotidienne d’un projet Git avec l’interface GitDTL.</p><span class="pill">Git</span><span class="pill">Tkinter</span><span class="pill">Windows</span></header>
-<h2 id="objectif">Objectif</h2><p>GitDTL permet de gérer les opérations Git courantes avec des boutons numérotés et des explications lisibles.</p>
-<h2 id="choisir">Choisir un projet</h2><ol><li>Ouvrir GitDTL.</li><li>Vérifier le dossier affiché.</li><li>Utiliser **Changer de projet** si le dossier n’est pas le bon.</li></ol><div class="note">Si le dossier n’est pas encore un dépôt Git, GitDTL peut proposer de l’initialiser.</div>
-<h2 id="routine">Routine Git conseillée</h2><div class="section-block"><h3>1. Lire l’état</h3><p>Commencer par l’option d’état du projet pour savoir quoi faire.</p></div><div class="section-block"><h3>2. Voir les modifications</h3><p>Consulter les différences avant d’enregistrer ou de valider.</p></div><div class="section-block"><h3>3. Enregistrer puis valider</h3><p>Ajouter les fichiers pertinents, puis créer un commit avec un message clair.</p></div>
-<h2 id="publier">Publier sur GitHub</h2><p>Après un commit, l’option de publication envoie les changements vers le dépôt distant configuré. Si aucun remote n’existe, GitDTL demande l’adresse GitHub.</p>
-<h2 id="versions">Créer une version</h2><p>La création de version associé un commit de version et un tag. Cette action sert à marquer une étape stable du projet.</p>
-<h2 id="journal">Consulter le journal</h2><p>Le journal aide à comprendre ce qui a été lancé et à relire les erreurs éventuelles. Il peut être consulté depuis l’interface.</p>
-</main></body></html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitDTL - Guide utilisateur</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+    :root{--bg:#0f1117;--surface:#181c27;--border:#252b3b;--accent:#58a6ff;--dim:#1a3a5c;--text:#c9d1e0;--muted:#5a6580;--heading:#e8edf5;--code:#0a0e17;--code-border:#1a2030;--sidebar:260px}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;line-height:1.7;display:flex;min-height:100vh}
+    nav{position:fixed;top:0;left:0;width:var(--sidebar);height:100vh;background:var(--surface);border-right:1px solid var(--border);padding:28px 0 40px;overflow:auto}
+    nav .logo{font:600 11px 'IBM Plex Mono',monospace;color:var(--accent);letter-spacing:2px;text-transform:uppercase;padding:0 20px 20px;border-bottom:1px solid var(--border);margin-bottom:16px}
+    nav .logo span{display:block;color:var(--muted);font-size:9px;margin-top:4px}
+    nav a{display:block;color:var(--muted);text-decoration:none;font:12px 'IBM Plex Mono',monospace;padding:5px 20px}
+    nav a:hover{color:var(--accent);background:rgba(88,166,255,.06)}
+    main{margin-left:var(--sidebar);padding:56px 64px 100px;max-width:1160px;width:100%}
+    h1{font:600 28px 'IBM Plex Mono',monospace;color:var(--heading);margin-bottom:12px}
+    .accent{color:var(--accent)}
+    .doc-header{margin-bottom:48px;padding-bottom:32px;border-bottom:1px solid var(--border)}
+    .pill{font:11px 'IBM Plex Mono',monospace;padding:3px 10px;border-radius:3px;background:var(--code);border:1px solid var(--code-border);color:var(--muted);display:inline-block;margin:12px 8px 0 0}
+    h2{font:600 13px 'IBM Plex Mono',monospace;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin:52px 0 20px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+    .section-block{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:4px;padding:20px 24px;margin:24px 0}
+    h3{font:600 15px 'IBM Plex Mono',monospace;color:var(--accent);margin:0 0 8px}
+    p{margin-bottom:14px}
+    ul,ol{margin:0 0 16px 24px}
+    li{margin:6px 0}
+    code{font-family:'IBM Plex Mono',monospace;background:var(--code);border:1px solid var(--code-border);border-radius:3px;color:#93c5fd;padding:1px 6px}
+    pre{font-family:'IBM Plex Mono',monospace;background:var(--code);border:1px solid var(--code-border);border-radius:4px;color:#93c5fd;overflow:auto;padding:14px 16px;margin:14px 0 18px}
+    table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:13px}
+    th{font:600 10px 'IBM Plex Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;text-align:left;background:var(--code);padding:10px 14px}
+    td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+    .note{background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.25);padding:14px 16px;border-radius:4px;margin:18px 0}
+    .warning{background:rgba(255,191,0,.08);border:1px solid rgba(255,191,0,.25);padding:14px 16px;border-radius:4px;margin:18px 0}
+    @media (max-width: 820px){body{display:block}nav{position:static;width:100%;height:auto;border-right:0;border-bottom:1px solid var(--border)}main{margin-left:0;padding:34px 22px 64px}table{font-size:12px}}
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo">GitDTL<span>Guide utilisateur</span></div>
+    <a href="#objectif">Objectif</a>
+    <a href="#demarrage">Démarrage</a>
+    <a href="#routine">Routine Git</a>
+    <a href="#options">Options</a>
+    <a href="#github">GitHub</a>
+    <a href="#versions">Versions</a>
+    <a href="#journal">Journal</a>
+    <a href="#problemes">Problèmes</a>
+  </nav>
+  <main>
+    <header class="doc-header">
+      <h1><span class="accent">GitDTL</span> - Guide utilisateur</h1>
+      <p>Guide pratique pour gérer au quotidien un projet Git avec l'interface GitDTL.</p>
+      <span class="pill">Git</span><span class="pill">Tkinter</span><span class="pill">Windows</span><span class="pill">v1.0-3</span>
+    </header>
+
+    <h2 id="objectif">Objectif</h2>
+    <p>GitDTL est une interface Windows qui rend les opérations Git courantes accessibles depuis un menu numéroté. L'application lance les commandes Git dans le dossier du projet choisi, affiche les résultats et conserve une trace dans un journal local.</p>
+    <p>Le principe est simple : regarder l'état du projet, enregistrer les fichiers utiles, valider les changements, puis publier sur GitHub lorsque le projet est prêt.</p>
+
+    <h2 id="demarrage">Démarrage et choix du projet</h2>
+    <ol>
+      <li>Ouvrez GitDTL.</li>
+      <li>Vérifiez le dossier affiché en haut de l'interface.</li>
+      <li>Utilisez <strong>Changer de projet</strong> si ce dossier n'est pas le bon.</li>
+      <li>Si le dossier n'est pas encore un dépôt Git, acceptez l'initialisation proposée avec <code>git init</code>.</li>
+    </ol>
+    <div class="note">GitDTL peut créer un dépôt Git local, mais il ne crée pas automatiquement le dépôt correspondant sur le site GitHub.</div>
+
+    <h2 id="routine">Routine Git conseillée</h2>
+    <div class="section-block">
+      <h3>1. Lire l'état</h3>
+      <p>Commencez par l'option 1 pour savoir si des fichiers sont modifiés, nouveaux, déjà enregistrés ou prêts à être publiés.</p>
+    </div>
+    <div class="section-block">
+      <h3>2. Voir les modifications</h3>
+      <p>Utilisez l'option 2 avant de valider. Elle permet de relire les différences et d'éviter d'inclure une modification accidentelle.</p>
+    </div>
+    <div class="section-block">
+      <h3>3. Enregistrer puis valider</h3>
+      <p>Ajoutez les fichiers pertinents avec l'option 4, puis créez un commit avec l'option 6 et un message court mais explicite.</p>
+    </div>
+    <div class="section-block">
+      <h3>4. Publier</h3>
+      <p>Après un commit, l'option 7 envoie les changements vers le dépôt distant configuré sur GitHub.</p>
+    </div>
+
+    <h2 id="options">Options du menu</h2>
+    <table>
+      <thead>
+        <tr><th>Option</th><th>Quand l'utiliser</th><th>Ce que fait GitDTL</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>1</strong></td><td>Au début, après une modification ou après une publication.</td><td>Affiche l'état du projet et suggère la prochaine action utile.</td></tr>
+        <tr><td><strong>2</strong></td><td>Quand vous voulez relire les changements.</td><td>Affiche les différences non enregistrées et celles déjà ajoutées au prochain commit.</td></tr>
+        <tr><td><strong>3</strong></td><td>Pour ajouter un nouveau fichier encore inconnu de Git.</td><td>Ajoute les fichiers sélectionnés au suivi Git.</td></tr>
+        <tr><td><strong>4</strong></td><td>Pour préparer des fichiers modifiés ou non suivis.</td><td>Lance <code>git add</code> après confirmation.</td></tr>
+        <tr><td><strong>5</strong></td><td>Pour retirer un fichier ou un dossier du projet.</td><td>Propose de supprimer l'élément du disque ou seulement du suivi Git.</td></tr>
+        <tr><td><strong>6</strong></td><td>Quand les changements sont prêts à entrer dans l'historique.</td><td>Demande un message puis lance <code>git commit</code>.</td></tr>
+        <tr><td><strong>7</strong></td><td>Quand vous voulez envoyer le projet sur GitHub.</td><td>Vérifie l'état, configure le remote si besoin, puis lance <code>git push</code>.</td></tr>
+        <tr><td><strong>8</strong></td><td>Pour marquer une étape stable du projet.</td><td>Crée un commit de version, un tag annoté et publie le tag.</td></tr>
+        <tr><td><strong>9</strong></td><td>Pour relire les dernières validations.</td><td>Affiche les derniers commits avec <code>git log --oneline -30</code>.</td></tr>
+        <tr><td><strong>10</strong></td><td>Quand GitHub contient peut-être des changements absents du PC.</td><td>Lance <code>git pull</code>.</td></tr>
+        <tr><td><strong>11</strong></td><td>Pour dépanner ou comprendre l'état technique du dépôt.</td><td>Affiche branche, remote, fichiers modifiés, fichiers non suivis et dernier commit.</td></tr>
+        <tr><td><strong>12</strong></td><td>Pour vérifier ce que GitDTL a exécuté.</td><td>Ouvre le journal local, avec actualisation, effacement confirmé et export.</td></tr>
+        <tr><td><strong>13</strong></td><td>Pour ouvrir la page GitHub du projet.</td><td>Lit l'adresse du remote <code>origin</code> et l'ouvre dans le navigateur.</td></tr>
+        <tr><td><strong>14</strong></td><td>Pour consulter la documentation intégrée.</td><td>Affiche le fichier <code>README.md</code> du projet.</td></tr>
+        <tr><td><strong>15</strong></td><td>Pour obtenir un bilan global de plusieurs projets Git.</td><td>Scanne un dossier racine et résume l'état des dépôts détectés.</td></tr>
+        <tr><td><strong>16</strong></td><td>Pour récupérer un dépôt GitHub sur un nouveau PC.</td><td>Lance <code>git clone</code>, puis propose d'ouvrir le projet cloné dans GitDTL.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="github">Publier sur GitHub</h2>
+    <p>L'option 7 publie les commits locaux vers GitHub. Avant d'envoyer les données, GitDTL vérifie si le projet contient encore des fichiers non validés, si le remote <code>origin</code> existe et si la branche locale possède une branche GitHub associée.</p>
+    <ul>
+      <li>Si aucun remote n'existe, GitDTL demande l'adresse du dépôt GitHub.</li>
+      <li>Si la branche n'a pas encore d'upstream, GitDTL peut lancer <code>git push --set-upstream origin &lt;branche&gt;</code>.</li>
+      <li>Si des fichiers ne sont pas validés, GitDTL les liste et demande confirmation avant de publier quand même.</li>
+    </ul>
+
+    <h2 id="versions">Créer une version</h2>
+    <p>L'option 8 sert à marquer officiellement une étape importante du projet. GitDTL demande un numéro de version, ajoute le préfixe <code>v</code> au tag, puis enchaîne les commandes nécessaires.</p>
+    <pre>git commit -m "Version 1.0.0"
+git tag -a v1.0.0 -m "Version 1.0.0"
+git push
+git push origin v1.0.0</pre>
+    <div class="warning">Cette action crée et publie un tag Git, mais elle ne crée pas automatiquement une Release GitHub. La Release doit être créée manuellement sur GitHub si elle est nécessaire.</div>
+
+    <h2 id="journal">Journal, aide et diagnostic</h2>
+    <p>GitDTL écrit les actions importantes dans <code>logs\gitdtl.log</code>. L'option 12 permet de relire ce journal, de l'actualiser, de l'effacer après confirmation ou d'en exporter une copie.</p>
+    <p>Les boîtes de dialogue peuvent afficher une aide contextuelle issue de <code>aide.md</code>. Les messages Git inattendus peuvent être enrichis par des conseils définis dans <code>expert_git.md</code>.</p>
+
+    <h2 id="problemes">En cas de problème</h2>
+    <ol>
+      <li>Lancez l'option 1 pour lire l'état du projet.</li>
+      <li>Lancez l'option 11 pour obtenir un diagnostic technique.</li>
+      <li>Ouvrez l'option 12 pour consulter le journal.</li>
+      <li>Vérifiez que Git est installé et disponible dans le <code>PATH</code> Windows.</li>
+      <li>Vérifiez le dossier projet affiché avant toute action sensible.</li>
+    </ol>
+    <div class="note">Le scan Git du matin, lorsqu'il est installé, reste en lecture seule : il consulte l'état local des dépôts sans créer de commit, sans modifier les fichiers et sans publier sur GitHub.</div>
+  </main>
+</body>
+</html>
