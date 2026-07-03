@@ -1,6 +1,6 @@
 # GitDTL v1.0-7
 
-June 2026 - Didier DTL Morandi - https://didiermorandi.com/netdtl/
+June 2026 - Didier DTL Morandi - https://netdtl.com/
 
 **A simplified Windows menu for managing Git projects**
 
