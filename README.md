@@ -1,176 +1,198 @@
-# GitDTL v1.0.0
+# GitDTL v1.0-7
 
-8 juin 2026 Didier DTL Morandi https://didiermorandi.com/netdtl/
+June 2026 - Didier DTL Morandi - https://didiermorandi.com/netdtl/
 
-**Menu simplifié pour la gestion de projets avec Git**
+**A simplified Windows menu for managing Git projects**
 
-Interface graphique Windows pour la gestion quotidienne de projets Git, conçue pour les utilisateurs qui souhaitent travailler avec Git sans passer par la ligne de commande.
+GitDTL is a Python/Tkinter desktop application for everyday Git work. It is designed for users who want to use Git without typing command-line instructions.
 
----
-
-## Présentation
-
-GitDTL est une application de bureau Python/Tkinter qui expose les opérations Git essentielles sous forme d'un menu numéroté. Elle peut être utilisée sur n'importe quel dépôt local, même inexistant. Dans ce cas, l'outil en proposera la création.
-
-L'interface adopte l'esthétique "Terminal DEC VT100" de la suite NetDTL : fond noir, texte vert phosphore, police monospace Courier New.
+The interface follows the NetDTL "DEC VT100 terminal" style: black background, phosphor-green text, and the Courier New monospace font.
 
 ---
 
-## Prérequis
+## Overview
 
-- Windows 10 ou supérieur
-- Python 3.10 ou supérieur (modules standard uniquement : `tkinter`, `subprocess`, `pathlib`, `shutil`)
-- Git installé et disponible dans le `PATH` Windows
+GitDTL exposes common Git operations through a numbered graphical menu. It can manage an existing local repository or help initialize a new one when the selected folder is not yet a Git repository.
+
+The application focuses on clear, guided actions: checking project status, adding files, committing changes, publishing to GitHub, creating tags, cloning repositories, reading logs, and scanning folders for Git projects.
+
+---
+
+## Requirements
+
+- Windows 10 or later
+- Python 3.10 or later
+- Git installed and available in the Windows `PATH`
+
+GitDTL uses only Python standard-library modules, including `tkinter`, `subprocess`, `pathlib`, and `shutil`.
 
 ---
 
 ## Installation
 
-```
+```powershell
 git clone https://github.com/DidierMorandi/gitdtl.git
 cd gitdtl
 python GitDTL.py
 ```
 
-Aucune dépendance externe à installer.
+No external Python dependency is required.
 
 ---
 
-## Lancement
+## Launch
 
-```
+```powershell
 python GitDTL.py
 ```
 
-GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé à tout moment via le bouton **Changer de projet**.
+GitDTL starts from the current folder. The managed project folder can be changed at any time with the **Change project** button in the application.
 
 ---
 
-## Fonctionnalités
+## Main Menu
 
-| N° | Action | Commande Git équivalente |
-|----|--------|--------------------------|
-| 1 | État du projet : que faire maintenant ? | `git status` |
-| 2 | Voir les modifications | `git diff` |
-| 3 | Ajouter un fichier au projet | `git add` |
-| 4 | Enregistrer un fichier modifié | `git add` |
-| 5 | Supprimer un fichier ou un dossier | `git rm` |
-| 6 | Valider les changements | `git commit` |
-| 7 | Publier le projet sur GitHub | `git push` |
-| 8 | Créer une version | `git tag` + `git push` |
-| 9 | Historique des versions | `git log` |
-| 10 | Synchroniser depuis GitHub | `git pull` |
-| 11 | Diagnostic technique du dépôt | `git status` + branche + remote + dernier commit |
-| 12 | Lire le journal | Affichage du fichier `logs/gitdtl.log` |
-| 13 | Voir le projet dans GitHub | Ouvre la page GitHub configurée |
-| 14 | Documentation | Affiche ce README en Markdown |
-| 15 | Commande magique : GitScan | Scanne un dossier choisi et affiche le bilan des dépôts Git détectés |
-| 16 | Cloner un dépôt GitHub | `git clone` |
-
-### Comportements notables
-
-**Initialisation automatique du dépôt.** Si le dossier courant ne contient pas encore de dépôt Git, GitDTL propose de l'initialiser (`git init`) avant d'exécuter toute opération.
-
-**Configuration du remote.** Si aucun remote `origin` n'est configuré au moment de publier, GitDTL demande l'URL du dépôt GitHub et l'enregistre automatiquement.
-
-**Gestion de l'upstream.** Lors du premier `git push` sur une nouvelle branche, GitDTL détecte l'absence d'upstream et exécute automatiquement `git push --set-upstream origin <branche>`.
-
-**Suppression de fichier.** Deux options sont proposées : supprimer le fichier du disque et du suivi Git, ou le retirer uniquement du suivi Git en l'ajoutant dans `.gitignore`.
-
-**Avertissement avant publication.** Si des fichiers modifiés ne sont pas encore inclus dans un commit, GitDTL les liste et demande confirmation avant d'exécuter `git push`.
-
-**Guidage visuel.** Après une première activation, GitDTL met l'option 1 en surbrillance au lancement afin d'encourager le réflexe `git status`. Lorsque l'état du projet signale des éléments non validés, l'étape suivante est également suggérée : option 4 pour enregistrer les fichiers, ou option 6 si les changements sont déjà prêts à être validés. Après une publication réussie, GitDTL met l'option 13 en surbrillance pour ouvrir le projet dans GitHub.
-
-**Commande envoyée.** Une ligne discrète en bas de l'écran affiche la dernière commande Git réellement lancée par GitDTL. Le libellé reste en police normale, tandis que la commande est affichée en monospace vert DTL. Cette ligne est masquée tant qu'aucune commande Git n'a été envoyée, et elle est effacée lorsqu'une option sans commande Git est sélectionnée.
-
-**Exécution silencieuse sous Windows.** Les commandes Git sont lancées sans ouvrir de fenêtre console parasite, y compris lors d'un `git push`.
-
-**Git du matin.** Un script compagnon peut afficher à l'ouverture de session Windows un petit bilan des dépôts Git détectés : modifications à enregistrer, changements à valider, commits à publier et temps estimé. Il s'appuie sur `DTLGitMorning.ps1`, lancé discrètement par `DTLGitMorning.vbs` via un raccourci placé dans le dossier de démarrage Windows. Le scan est en lecture seule : il utilise l'état Git local et ne modifie aucun dépôt. Pour tester sans redémarrer, lancez `DTLGitMorning.vbs`. Pour désactiver ce rappel, supprimez simplement le raccourci `DTL Git du matin.lnk` dans le dossier de démarrage Windows.
-
-**Création de version.** La fonction "Créer une version" enchaîne automatiquement : commit de version, création d'un tag annoté (`vX.Y.Z`), push du commit, push du tag.
-
-**Journal applicatif.** Chaque action Git et chaque erreur sont enregistrées dans `logs/gitdtl.log` avec horodatage. Le journal peut être consulté, effacé ou exporté depuis l'interface.
-
-**Aide contextuelle.** Chaque boîte de dialogue expose un bouton **? pour Aide** qui affiche une explication de l'opération en cours. Les textes d'aide peuvent être personnalisés via un fichier `aide.md` placé dans le même dossier que le script.
-
-**Système expert.** Les messages Git non prévus par l'interface peuvent être enrichis par des conseils issus de règles placées dans `expert_git.md`.
-
-**Bienvenue première utilisation.** Au premier lancement, GitDTL affiche un écran de bienvenue dont le texte vient de la section `welcome` de `aide.md`. Un cookie local `.gitdtl_welcome_seen` évite de réafficher cet écran ensuite.
+| No. | Action | Git equivalent |
+|-----|--------|----------------|
+| 1 | Project status: what should I do now? | `git status` |
+| 2 | View changes | `git diff` |
+| 3 | Add a new file to the project | `git add` |
+| 4 | Save a modified file into the project | `git add` |
+| 5 | Remove a file or folder | `git rm` |
+| 6 | Commit changes | `git commit` |
+| 7 | Publish the project to GitHub | `git push` |
+| 8 | Create a release | `git tag` + `git push` |
+| 9 | Version history | `git log` |
+| 10 | Sync the project from GitHub | `git pull` |
+| 11 | Technical repository diagnostic | `git status`, branch, remote, latest commit |
+| 12 | Read the log | Opens `logs/gitdtl.log` |
+| 13 | View the project on GitHub | Opens the configured GitHub page |
+| 14 | Documentation | Opens the Markdown documentation |
+| 15 | Magic command: GitScan | Scans a folder and summarizes detected Git repositories |
+| 16 | Clone a GitHub repository | `git clone` |
 
 ---
 
-## Personnalisation de l'aide
+## Notable Behavior
 
-Créer ou modifier un fichier `aide.md` dans le répertoire de GitDTL avec des sections nommées par clé :
+**Automatic repository initialization.** If the current folder is not a Git repository, GitDTL offers to run `git init` before Git-specific operations.
+
+**Initial project detection.** GitDTL tries to identify the most useful project folder at startup and can guide the user through choosing or creating a project.
+
+**Remote setup.** If no `origin` remote is configured when publishing, GitDTL asks for the GitHub repository URL and stores it automatically.
+
+**Upstream handling.** On the first push of a new branch, GitDTL detects a missing upstream and runs `git push --set-upstream origin <branch>` when appropriate.
+
+**File removal choices.** When removing a file or folder, GitDTL can either delete it from disk and Git, or stop tracking it while keeping it locally and adding it to `.gitignore`.
+
+**Commit assistance.** Before option 6 asks for the commit message, GitDTL displays the current diff and status summary in a separate visible window. This helps the user write a meaningful commit message. The diff window stays visible while the commit-message prompt is open.
+
+**Publish warning.** If local changes are not yet committed, GitDTL lists them and asks for confirmation before running `git push`.
+
+**Visual guidance.** GitDTL highlights the next useful action after reading the project status, after adding files, after committing, or after publishing.
+
+**Command feedback.** A discreet line at the bottom of the window shows the latest Git command actually executed by GitDTL.
+
+**Silent Windows execution.** Git commands are run without opening extra console windows.
+
+**First-run welcome.** On first launch, GitDTL shows a welcome screen. A local `.gitdtl_welcome_seen` marker prevents it from appearing again.
+
+**Common Python ignore suggestions.** When common generated Python folders such as `__pycache__/` or `logs/` appear as untracked files, GitDTL can offer to add them to `.gitignore`.
+
+**GitScan.** The GitScan tool scans a selected root folder, detects Git repositories, and summarizes their state.
+
+**GitHub clone flow.** After cloning a GitHub repository, GitDTL detects the cloned folder and can immediately switch to managing it.
+
+**Release creation.** The release action creates a version commit, creates an annotated tag such as `v1.2.3`, pushes the commit, and pushes the tag.
+
+**Application log.** Git commands and errors are written to `logs/gitdtl.log` with timestamps. The log can be viewed, cleared, or exported from the interface.
+
+**Context help.** Dialog windows include a help button. Help text can be customized through `aide.md`.
+
+**Expert advice.** Unexpected Git messages can be enriched with advice loaded from local rules in `expert_git.md`.
+
+---
+
+## Custom Help
+
+Create or edit `aide.md` in the GitDTL folder. Sections are identified by keys:
 
 ```markdown
 ## commit_message
 
-Décrivez brièvement la modification apportée.
-Exemple : Correction du calcul de l'en-tête HTML.
+Briefly describe the change.
+Example: Fix the HTML header calculation.
 
 ## release_version
 
-Indiquez le numéro de version au format X.Y.Z.
-Le préfixe v sera ajouté automatiquement.
+Enter the version number using the X.Y.Z format.
+The v prefix will be added automatically.
 ```
 
-Les clés disponibles sont : `create_git_repository`, `remove_file_action`, `commit_message`, `release_version`, `release_confirmation`, `clear_log`, `publish_with_uncommitted_changes`, `github_remote_url`, `clone_repository_url`.
+Common keys include:
 
-Si le fichier est absent ou si une clé n'est pas définie, le texte d'aide par défaut intégré au script est utilisé.
+`welcome`, `first_project_choice`, `create_git_repository`, `remove_file_action`, `commit_message`, `release_version`, `release_confirmation`, `clear_log`, `publish_with_uncommitted_changes`, `github_remote_url`, `clone_repository_url`, `common_python_ignores`, `stage_modified_files`.
 
-## Personnalisation du système expert
+If the file is missing, or if a key is not defined, GitDTL uses the built-in default help text.
 
-Créer ou modifier un fichier `expert_git.md` dans le répertoire de GitDTL.
-Chaque règle contient des fragments de messages Git à reconnaître et un conseil à afficher :
+---
+
+## Custom Expert Rules
+
+Create or edit `expert_git.md` in the GitDTL folder. Each rule contains Git message fragments to detect and advice to display:
 
 ```markdown
-## Branche sans upstream
+## Branch without upstream
 
 Patterns:
 - has no upstream branch
 - --set-upstream
 
 Advice:
-La branche locale n'est pas encore reliée à sa branche GitHub.
-GitDTL peut corriger ce cas avec git push --set-upstream origin <branche>.
+The local branch is not connected to its GitHub branch yet.
+GitDTL can fix this with git push --set-upstream origin <branch>.
 ```
 
 ---
 
-## Structure du projet
+## Building a Windows Executable
 
+The repository includes `GitDTL.spec` for PyInstaller:
+
+```powershell
+python -m PyInstaller GitDTL.spec
 ```
+
+If the build fails with an access-denied error on `dist\GitDTL.exe`, close every running GitDTL window first. Windows cannot replace the executable while it is still open.
+
+---
+
+## Project Structure
+
+```text
 gitdtl/
-├── GitDTL.py       Script principal
-├── aide.md         Textes d'aide personnalisés (optionnel)
-├── expert_git.md   Règles du système expert (optionnel)
-└── logs/
-    └── gitdtl.log  Journal applicatif (créé automatiquement)
+|-- GitDTL.py                         Main application
+|-- GitDTL.spec                       PyInstaller build file
+|-- aide.md                           Optional custom help text
+|-- expert_git.md                     Optional expert-advice rules
+|-- README.md                         English README
+|-- README_Fr.md                      French README
+|-- GitDTL_User_Guide.html            English user guide
+|-- GitDTL_Reference_Manual.html      English reference manual
+|-- GitDTL_Guide_Utilisateur.html     French user guide
+|-- GitDTL_Manuel_de_Reference.html   French reference manual
+|-- netdtl_logo.png                   NetDTL logo asset
+|-- netdtl_logo_small.png             Small NetDTL logo asset
+`-- logs/
+    `-- gitdtl.log                    Application log, created automatically
 ```
 
 ---
 
-## Licence
+## License
 
-MIT — voir le fichier `LICENSE`.
+MIT - see `LICENSE`.
 
 ---
 
 *In Memoriam Jean-Claude BELLAMY (1937-2015)*
-
-## Update - 14 June 2026
-
-The current code reports `APP_VERSION = "v1.0-3"` in `GitDTL.py`.
-
-New and confirmed behavior:
-
-- First-run welcome window, remembered through a small local marker file.
-- Smarter detection of the initial project directory.
-- Expert advice loaded from local rules when available.
-- Highlighting of the next useful actions after reading the Git status.
-- Offer to add common Python folders to `.gitignore` when they appear as untracked.
-- `GitScan` discovers Git repositories under a root folder and displays a concise summary.
-- The GitHub clone option detects the cloned folder and offers to manage it immediately.
-- Local log can be viewed, cleared, or exported from the interface.
-- HTML documentation `GitDTL_Manuel_Utilisateur.html` is present in the repository.
