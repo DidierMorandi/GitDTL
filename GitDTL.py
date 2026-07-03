@@ -12,7 +12,7 @@ from tkinter import filedialog, ttk
 
 
 APP_NAME = "GitDTL"
-APP_VERSION = "v1.0-6"
+APP_VERSION = "v1.0-7"
 APP_SUBTITLE = "Git simplifié pour les projets DTL"
 HELP_FILE = "aide.md"
 EXPERT_FILE = "expert_git.md"
@@ -1658,7 +1658,7 @@ class GitDTLApp:
             diff_window = self.show_text_window(
                 "Modifications à valider",
                 diff_content,
-                scroll_to_end=True,
+                scroll_to_end=False,
                 selectable=True,
                 x_offset=-320,
                 y_offset=-80,
