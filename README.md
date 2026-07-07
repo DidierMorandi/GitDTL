@@ -70,6 +70,8 @@ GitDTL starts from the current folder. The managed project folder can be changed
 | 14 | Documentation | Opens the Markdown documentation |
 | 15 | Magic command: GitScan | Scans a folder and summarizes detected Git repositories |
 | 16 | Clone a GitHub repository | `git clone` |
+| 17 | Publish a GitHub Release without kit | local tag + GitHub publication without installer kit |
+| 18 | Build a kit and publish a GitHub Release | PyInstaller if needed + ZIP + manuals + GitHub publishing |
 
 ---
 
@@ -106,6 +108,10 @@ GitDTL starts from the current folder. The managed project folder can be changed
 **GitHub clone flow.** After cloning a GitHub repository, GitDTL detects the cloned folder and can immediately switch to managing it.
 
 **Release creation.** The release action creates a version commit, creates an annotated tag such as `v1.2.3`, pushes the commit, and pushes the tag.
+
+**Publish a GitHub Release without kit.** Option 17 starts from an existing local tag. It does not create a tag and does not prepare an installer kit. GitDTL checks that the repository is clean, that `origin` points to GitHub, that the tag exists locally, and that no GitHub Release already uses that tag. GitDTL pushes the tag if needed and creates the Release with GitHub CLI `gh`.
+
+**Build a kit and publish a GitHub Release.** Option 18 runs the complete chain: PyInstaller compilation when a `.spec` file exists, ZIP creation, addition of the reference manual and user guide in the ZIP `documentation\` folder, then GitHub publication. It uses an existing local tag and refuses to publish if the repository is not clean or if a GitHub Release already exists for that tag.
 
 **Application log.** Git commands and errors are written to `logs/gitdtl.log` with timestamps. The log can be viewed, cleared, or exported from the interface.
 

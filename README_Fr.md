@@ -68,6 +68,8 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 | 14 | Documentation | Affiche ce README en Markdown |
 | 15 | Commande magique : GitScan | Scanne un dossier et affiche le bilan des dépôts détectés |
 | 16 | Cloner un dépôt GitHub | `git clone` |
+| 17 | Publier une Release GitHub sans kit | tag local + publication GitHub sans kit d'installation |
+| 18 | Créer un kit et publier une Release GitHub | PyInstaller si besoin + ZIP + manuels + publication GitHub |
 
 ### Comportements notables
 
@@ -90,6 +92,10 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 **Git du matin.** Un script compagnon peut afficher à l'ouverture de session Windows un résumé des dépôts Git détectés : modifications à enregistrer, changements à valider, commits à publier et temps estimé.
 
 **Création de version.** La fonction enchaîne commit de version, tag annoté `vX.Y.Z`, push du commit et push du tag.
+
+**Publication d'une Release GitHub sans kit.** L'option 17 part d'un tag local existant. Elle ne crée pas de tag et ne prépare pas de kit d'installation. GitDTL vérifie que le dépôt est propre, que `origin` pointe vers GitHub, que le tag existe localement et qu'aucune Release GitHub ne porte déjà ce tag. GitDTL pousse le tag si nécessaire, puis crée la Release avec GitHub CLI `gh`.
+
+**Création d'un kit et publication d'une Release GitHub.** L'option 18 exécute la chaîne complète : compilation avec PyInstaller lorsqu'un fichier `.spec` existe, création du ZIP, ajout du Manuel de référence et du Guide utilisateur dans le dossier `documentation\` du ZIP, puis publication GitHub. Elle utilise un tag local existant et refuse de publier si le dépôt n'est pas propre ou si une Release GitHub existe déjà pour ce tag.
 
 **Journal applicatif.** Chaque action Git et chaque erreur sont enregistrées dans `logs/gitdtl.log`. Le journal peut être consulté, effacé ou exporté depuis l'interface.
 

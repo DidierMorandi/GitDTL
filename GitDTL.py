@@ -5,14 +5,16 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import webbrowser
+import zipfile
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, ttk
 
 
 APP_NAME = "GitDTL"
-APP_VERSION = "v1.0-10"
+APP_VERSION = "v1.0-12"
 APP_SUBTITLE = "Git simplifié pour les projets DTL"
 HELP_FILE = "aide.md"
 EXPERT_FILE = "expert_git.md"
@@ -612,6 +614,8 @@ class GitDTLApp:
             ("14", "Documentation", self.show_documentation, False),
             ("15", "Commande magique : GitScan", self.show_git_scan, False),
             ("16", "Cloner un dépôt GitHub (git clone)", self.clone_repository, False),
+            ("17", "Publier une Release GitHub sans kit", self.create_github_release_from_local_tag, False),
+            ("18", "Créer un kit et publier une Release GitHub", self.create_full_github_release, False),
             ("0", "Quitter le menu", self.root.destroy, False),
         ]
 
@@ -1878,6 +1882,479 @@ class GitDTLApp:
             self.show_info(APP_NAME, f"Version {tag} créée et publiée.")
         except Exception as exc:
             self.show_error(exc)
+
+    def create_github_release_from_local_tag(self) -> None:
+        try:
+            project = self.choose_project_for_github_release()
+            if project is None:
+                return
+            self.set_project_dir(project)
+            if not self.ensure_git_repository(offer_project_choice=False):
+                return
+
+            status_lines = self.get_porcelain_status()
+            if status_lines:
+                self.show_error_message(
+                    "Publier une Release GitHub sans kit",
+                    "Release GitHub impossible : le dépôt contient des modifications locales.\n\n"
+                    "Validez ou annulez les changements avant de publier la Release.\n\n"
+                    + "\n".join(status_lines),
+                )
+                return
+
+            remote = self.require_existing_origin_for_release()
+            if remote is None:
+                return
+            github_url = self.github_web_url(remote)
+            if github_url is None:
+                self.show_error_message(
+                    "Publier une Release GitHub sans kit",
+                    "Release GitHub impossible : origin ne pointe pas vers une URL GitHub reconnue.\n\n"
+                    f"Origin actuel : {remote}",
+                )
+                return
+
+            tag = self.choose_local_tag_for_release()
+            if tag is None:
+                return
+
+            branch = self.current_branch() or "inconnue"
+            remote_tag_exists = self.remote_tag_exists(tag)
+            release_exists = self.github_release_exists(tag)
+            if release_exists is None:
+                return
+            if release_exists:
+                self.show_error_message(
+                    "Publier une Release GitHub sans kit",
+                    f"Release GitHub impossible : une release existe déjà pour le tag {tag}.",
+                )
+                return
+
+            title = f"{self.project_dir.name} {tag}"
+            summary = (
+                "Publier une Release GitHub sans kit\n"
+                "────────────────────────────────────\n\n"
+                f"Projet            : {self.project_dir.name}\n"
+                f"Tag local         : {tag}\n"
+                f"Branche           : {branch}\n"
+                "Dépôt propre      : Oui\n"
+                f"Tag sur GitHub    : {'Oui' if remote_tag_exists else 'Non, sera poussé'}\n"
+                "Release existante : Non\n"
+                "Kit ZIP           : Non\n\n"
+                "Publier la Release GitHub maintenant ? (O/N)"
+            )
+            confirmed = self.ask_choice(
+                "Publier une Release GitHub sans kit",
+                summary,
+                [("Oui", True), ("Non", False)],
+                "Cette action crée une Release GitHub à partir d'un tag local existant, sans joindre de kit .zip.",
+                kind="warning",
+            )
+            if not confirmed:
+                return
+
+            if not remote_tag_exists:
+                push_tag = self.run_git(["push", "origin", tag])
+                if push_tag.returncode != 0:
+                    self.show_command_error(push_tag)
+                    return
+
+            args = ["release", "create", tag, "--title", title]
+            notes_path = self.project_dir / "RELEASE_NOTES.md"
+            if notes_path.exists():
+                args.extend(["--notes-file", str(notes_path)])
+            else:
+                args.append("--generate-notes")
+
+            release = self.run_gh(args)
+            if release.returncode != 0:
+                self.show_command_error(release)
+                return
+
+            self.highlight_next_options(["13"])
+            self.show_info(
+                APP_NAME,
+                f"Release GitHub créée sans kit.\n\nTag : {tag}",
+            )
+        except Exception as exc:
+            self.show_error(exc)
+
+    def choose_project_for_github_release(self) -> Path | None:
+        root_dir = self.release_projects_root()
+        repositories = self.discover_git_repositories(root_dir)
+        if not repositories:
+            self.show_warning("Créer une release GitHub", f"Aucun projet Git détecté dans :\n\n{root_dir}")
+            return None
+        choices = [(repository.name, repository) for repository in repositories]
+        return self.ask_choice(
+            "Créer une release GitHub",
+            "Choisissez le projet pour lequel créer une release GitHub :",
+            choices + [("Annuler", None)],
+            "GitDTL liste les projets Git détectés dans le dossier outils.",
+        )
+
+    def release_projects_root(self) -> Path:
+        if self.app_dir.name.lower() == "dist":
+            return self.app_dir.parent.parent
+        return self.app_dir.parent
+
+    def require_existing_origin_for_release(self) -> str | None:
+        remote = self.run_git(["remote", "get-url", "origin"])
+        if remote.returncode == 0 and remote.stdout.strip():
+            return remote.stdout.strip()
+        self.show_error_message(
+            "Créer une release GitHub",
+            "Release GitHub impossible : le dépôt distant origin est absent.",
+        )
+        return None
+
+    def choose_local_tag_for_release(self) -> str | None:
+        result = self.run_git(["tag", "--sort=-creatordate"])
+        if result.returncode != 0:
+            self.show_command_error(result)
+            return None
+        tags = [tag.strip() for tag in result.stdout.splitlines() if tag.strip()]
+        if not tags:
+            self.show_error_message(
+                "Créer une release GitHub",
+                "Release GitHub impossible : aucun tag local n'existe dans ce dépôt.\n\n"
+                "Créez d'abord une version locale avec l'option 8.",
+            )
+            return None
+        return self.ask_choice(
+            "Créer une release GitHub",
+            "Choisissez le tag local à publier sur GitHub :",
+            [(tag, tag) for tag in tags] + [("Annuler", None)],
+            "La release GitHub utilise un tag local existant. GitDTL ne crée pas de tag dans cette étape.",
+        )
+
+    def remote_tag_exists(self, tag: str) -> bool:
+        result = self.run_git(["ls-remote", "--exit-code", "--tags", "origin", f"refs/tags/{tag}"])
+        if result.returncode == 0:
+            return True
+        if result.returncode == 2:
+            return False
+        raise RuntimeError(
+            "Impossible de vérifier le tag distant sur origin.\n\n"
+            + (result.stderr.strip() or result.stdout.strip() or f"Code retour : {result.returncode}")
+        )
+
+    def github_release_exists(self, tag: str) -> bool | None:
+        if shutil.which("gh") is None:
+            self.show_manual_github_release_instructions(tag)
+            return None
+        result = self.run_gh(["release", "view", tag])
+        if result.returncode == 0:
+            return True
+        output = f"{result.stdout}\n{result.stderr}".lower()
+        if "not found" in output or "could not find" in output or "release not found" in output:
+            return False
+        self.show_command_error(result)
+        return None
+
+    def release_kit_source_dir(self) -> Path | None:
+        for dirname in ("dist", "Output"):
+            candidate = self.project_dir / dirname
+            if candidate.exists() and candidate.is_dir():
+                files = [
+                    path
+                    for path in candidate.rglob("*")
+                    if path.is_file()
+                    and path.suffix.lower() != ".lnk"
+                    and path.name.lower() != "gitdtl.log"
+                    and path.suffix.lower() != ".zip"
+                ]
+                if files:
+                    return candidate
+        return None
+
+    def build_release_zip(self, source_dir: Path, tag: str) -> Path:
+        safe_tag = "".join(char if char.isalnum() or char in ".-_" else "_" for char in tag)
+        zip_path = source_dir / f"{self.project_dir.name}_{safe_tag}.zip"
+        if zip_path.exists():
+            zip_path.unlink()
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for path in sorted(source_dir.rglob("*")):
+                if not path.is_file():
+                    continue
+                if path == zip_path or path.suffix.lower() in {".lnk", ".zip"}:
+                    continue
+                archive.write(path, path.relative_to(source_dir.parent))
+        return zip_path
+
+    def build_tag_archive_zip(self, tag: str) -> Path:
+        safe_tag = "".join(char if char.isalnum() or char in ".-_" else "_" for char in tag)
+        output_dir = self.temp_release_assets_dir()
+        zip_path = output_dir / f"{self.project_dir.name}_{safe_tag}.zip"
+        if zip_path.exists():
+            zip_path.unlink()
+        result = self.run_git(["archive", "--format", "zip", "-o", str(zip_path), tag])
+        if result.returncode != 0:
+            self.show_command_error(result)
+            raise RuntimeError("Impossible de créer le kit .zip depuis le tag local.")
+        return zip_path
+
+    def run_gh(self, args: list[str]) -> subprocess.CompletedProcess[str]:
+        if shutil.which("gh") is None:
+            raise RuntimeError("GitHub CLI gh n'est pas disponible dans le PATH Windows.")
+
+        command_for_log = "gh " + " ".join(self._quote_for_log(arg) for arg in args)
+        self.show_command_status(command_for_log)
+        self.log_info(command_for_log)
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        return subprocess.run(
+            ["gh", *args],
+            cwd=self.project_dir,
+            text=True,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            creationflags=creationflags,
+        )
+
+    def show_manual_github_release_instructions(self, tag: str) -> None:
+        remote = self.run_git(["remote", "get-url", "origin"])
+        remote_url = remote.stdout.strip() if remote.returncode == 0 else ""
+        github_url = self.github_web_url(remote_url) or remote_url or "la page GitHub du dépôt"
+        content = (
+            "GitHub CLI gh n'est pas disponible sur ce poste.\n\n"
+            "Créez la release manuellement sur GitHub :\n\n"
+            f"1. Ouvrez {github_url}/releases/new\n"
+            f"2. Choisissez le tag {tag}\n"
+            "3. Joignez le fichier .zip du kit d'installation\n"
+            "4. Publiez la release"
+        )
+        self.show_text_window("Instructions de release GitHub", content, selectable=True)
+
+    def create_full_github_release(self) -> None:
+        try:
+            project = self.choose_project_for_github_release()
+            if project is None:
+                return
+            self.set_project_dir(project)
+            if not self.ensure_git_repository(offer_project_choice=False):
+                return
+
+            status_lines = self.get_porcelain_status()
+            if status_lines:
+                self.show_error_message(
+                    "Créer la Release",
+                    "Release impossible : le dépôt contient des modifications locales.\n\n"
+                    "Validez ou annulez les changements avant de créer la Release.\n\n"
+                    + "\n".join(status_lines),
+                )
+                return
+
+            remote = self.require_existing_origin_for_release()
+            if remote is None:
+                return
+            if self.github_web_url(remote) is None:
+                self.show_error_message(
+                    "Créer la Release",
+                    "Release impossible : origin ne pointe pas vers une URL GitHub reconnue.\n\n"
+                    f"Origin actuel : {remote}",
+                )
+                return
+
+            tag = self.choose_local_tag_for_release()
+            if tag is None:
+                return
+
+            docs = self.release_documentation_files()
+            if docs is None:
+                return
+
+            remote_tag_exists = self.remote_tag_exists(tag)
+            release_exists = self.github_release_exists(tag)
+            if release_exists is None:
+                return
+            if release_exists:
+                self.show_error_message(
+                    "Créer la Release",
+                    f"Release impossible : une release GitHub existe déjà pour le tag {tag}.",
+                )
+                return
+
+            specs = self.pyinstaller_specs()
+            source_before_build = self.release_kit_source_dir()
+            summary = (
+                "Créer la Release\n"
+                "────────────────\n\n"
+                f"Projet                 : {self.project_dir.name}\n"
+                f"Tag local              : {tag}\n"
+                f"Compilation PyInstaller: {'Oui' if specs else 'Non'}\n"
+                f"Manuel de référence    : {docs[0].name}\n"
+                f"Guide utilisateur      : {docs[1].name}\n"
+                f"Tag sur GitHub         : {'Oui' if remote_tag_exists else 'Non, sera poussé'}\n"
+                "Release existante      : Non\n"
+                f"Kit source actuel      : {source_before_build.name if source_before_build else 'tag Git'}\n\n"
+                "Lancer la compilation, créer le ZIP et publier sur GitHub ? (O/N)"
+            )
+            confirmed = self.ask_choice(
+                "Créer la Release",
+                summary,
+                [("Oui", True), ("Non", False)],
+                "Cette action compile le projet si un fichier .spec existe, crée un kit ZIP avec la documentation, puis publie la release GitHub.",
+                kind="warning",
+            )
+            if not confirmed:
+                return
+
+            self.run_pyinstaller_if_needed(specs)
+
+            status_after_build = self.release_blocking_status_lines(allow_generated=True)
+            if status_after_build:
+                self.show_error_message(
+                    "Créer la Release",
+                    "Release interrompue : la compilation a laissé des modifications suivies par Git.\n\n"
+                    "Aucune publication GitHub n'a été lancée.\n\n"
+                    + "\n".join(status_after_build),
+                )
+                return
+
+            source_dir = self.release_kit_source_dir()
+            zip_path = self.build_full_release_zip(tag, source_dir, docs)
+
+            if not remote_tag_exists:
+                push_tag = self.run_git(["push", "origin", tag])
+                if push_tag.returncode != 0:
+                    self.show_command_error(push_tag)
+                    return
+
+            title = f"{self.project_dir.name} {tag}"
+            args = ["release", "create", tag, str(zip_path), "--title", title]
+            notes_path = self.project_dir / "RELEASE_NOTES.md"
+            if notes_path.exists():
+                args.extend(["--notes-file", str(notes_path)])
+            else:
+                args.append("--generate-notes")
+
+            release = self.run_gh(args)
+            if release.returncode != 0:
+                self.show_command_error(release)
+                return
+
+            self.highlight_next_options(["13"])
+            self.show_info(
+                APP_NAME,
+                "Release GitHub créée.\n\n"
+                f"Tag : {tag}\n"
+                f"Kit ZIP : {zip_path}",
+            )
+        except Exception as exc:
+            self.show_error(exc)
+
+    def pyinstaller_specs(self) -> list[Path]:
+        return sorted(self.project_dir.glob("*.spec"), key=lambda path: path.name.lower())
+
+    def run_pyinstaller_if_needed(self, specs: list[Path]) -> None:
+        if not specs:
+            return
+
+        pyinstaller = shutil.which("pyinstaller")
+        python = shutil.which("python")
+        if pyinstaller is None and python is None:
+            raise RuntimeError(
+                "PyInstaller est requis pour compiler ce projet, mais ni pyinstaller ni python ne sont disponibles dans le PATH Windows."
+            )
+
+        for spec in specs:
+            if pyinstaller is not None:
+                command = [pyinstaller, spec.name]
+                command_for_log = "pyinstaller " + self._quote_for_log(spec.name)
+            else:
+                command = [python, "-m", "PyInstaller", spec.name]
+                command_for_log = "python -m PyInstaller " + self._quote_for_log(spec.name)
+
+            self.show_command_status(command_for_log)
+            self.log_info(command_for_log)
+            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            result = subprocess.run(
+                command,
+                cwd=self.project_dir,
+                text=True,
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                creationflags=creationflags,
+            )
+            if result.returncode != 0:
+                self.show_command_error(result)
+                raise RuntimeError(f"Compilation PyInstaller échouée : {spec.name}")
+
+    def release_documentation_files(self) -> tuple[Path, Path] | None:
+        reference = self.pick_release_doc(["Manuel_de_Reference", "Manuel_de_reference"])
+        guide = self.pick_release_doc(["Guide_Utilisateur", "Guide_utilisateur"])
+        missing = []
+        if reference is None:
+            missing.append("Manuel de référence")
+        if guide is None:
+            missing.append("Guide utilisateur")
+        if missing:
+            self.show_error_message(
+                "Créer la Release",
+                "Release impossible : documentation manquante.\n\n"
+                + "\n".join(f"- {item}" for item in missing),
+            )
+            return None
+        return reference, guide
+
+    def pick_release_doc(self, fragments: list[str]) -> Path | None:
+        candidates = [
+            path
+            for path in self.project_dir.iterdir()
+            if path.is_file() and any(fragment in path.name for fragment in fragments)
+        ]
+        if not candidates:
+            return None
+
+        def score(path: Path) -> tuple[int, str]:
+            suffix_score = {".html": 0, ".pdf": 1, ".docx": 2, ".md": 3}.get(path.suffix.lower(), 9)
+            return suffix_score, path.name.lower()
+
+        return sorted(candidates, key=score)[0]
+
+    def build_full_release_zip(self, tag: str, source_dir: Path | None, docs: tuple[Path, Path]) -> Path:
+        safe_tag = "".join(char if char.isalnum() or char in ".-_" else "_" for char in tag)
+        output_dir = self.temp_release_assets_dir()
+        zip_path = output_dir / f"{self.project_dir.name}_{safe_tag}_Release.zip"
+        if zip_path.exists():
+            zip_path.unlink()
+
+        if source_dir is None:
+            archive = self.run_git(["archive", "--format", "zip", "-o", str(zip_path), tag])
+            if archive.returncode != 0:
+                self.show_command_error(archive)
+                raise RuntimeError("Impossible de créer le ZIP depuis le tag local.")
+            mode = "a"
+        else:
+            mode = "w"
+
+        with zipfile.ZipFile(zip_path, mode, compression=zipfile.ZIP_DEFLATED) as archive:
+            if source_dir is not None:
+                for path in sorted(source_dir.rglob("*")):
+                    if not path.is_file():
+                        continue
+                    if path == zip_path or path.suffix.lower() in {".lnk", ".zip"}:
+                        continue
+                    archive.write(path, path.relative_to(source_dir.parent))
+            for doc in docs:
+                archive.write(doc, Path("documentation") / doc.name)
+        return zip_path
+
+    def release_blocking_status_lines(self, allow_generated: bool = False) -> list[str]:
+        lines = self.get_porcelain_status()
+        if not allow_generated:
+            return lines
+        allowed_prefixes = ("?? build/", "?? dist/", "?? Output/", "?? release_assets/")
+        return [line for line in lines if not line.startswith(allowed_prefixes)]
+
+    def temp_release_assets_dir(self) -> Path:
+        output_dir = Path(tempfile.gettempdir()) / "GitDTL_release_assets" / self.project_dir.name
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return output_dir
 
     def show_history(self) -> None:
         try:

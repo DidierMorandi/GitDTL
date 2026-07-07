@@ -66,6 +66,18 @@ Une version crée un point de repère officiel dans l'historique Git.
 GitDTL va créer un commit, poser un tag de version, puis publier le tout sur le site de GitHub (https://github.com/)
 Utilisez cette action uniquement quand la version est prête à être conservée.
 
+## github_release
+
+Une release GitHub utilise un tag local existant.
+
+GitDTL ne crée pas de tag dans cette étape. L'outil fabrique un kit `.zip` depuis `dist\` ou `Output\`, pousse le tag si nécessaire, puis crée la release GitHub avec `gh release create`.
+
+## full_release
+
+Créer la Release lance la chaîne complète.
+
+GitDTL compile avec PyInstaller si un fichier `.spec` existe, crée le ZIP, y ajoute le Manuel de référence et le Guide utilisateur, puis publie la release sur GitHub à partir d'un tag local existant.
+
 ## clear_log
 
 Le journal contient les actions et erreurs enregistrées par GitDTL.
