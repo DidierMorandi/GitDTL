@@ -14,11 +14,12 @@ from tkinter import filedialog, ttk
 
 
 APP_NAME = "GitDTL"
-APP_VERSION = "v1.0-12"
+APP_VERSION = "v1.0-13"
 APP_SUBTITLE = "Git simplifié pour les projets DTL"
 HELP_FILE = "aide.md"
 EXPERT_FILE = "expert_git.md"
 WELCOME_COOKIE = ".gitdtl_welcome_seen"
+LAST_TOOL_COOKIE = ".gitdtl_last_tool"
 DEFAULT_HELP_TEXTS = {
     "welcome": (
         "Bienvenue dans GitDTL.\n\n"
@@ -351,6 +352,10 @@ class GitDTLApp:
         return Path(__file__).resolve().parent
 
     def detect_initial_project_dir(self) -> Path:
+        last_tool_dir = self.read_last_tool_dir()
+        if last_tool_dir is not None:
+            return last_tool_dir
+
         current_dir = Path.cwd().resolve()
         if current_dir.name.lower() == "dist" and self.looks_like_project_dir(current_dir.parent):
             return current_dir.parent
@@ -364,10 +369,43 @@ class GitDTLApp:
             for marker in [".git", "GitDTL.py", "README.md", "aide.md"]
         )
 
-    def welcome_cookie_path(self) -> Path:
+    def app_cookie_dir(self) -> Path:
         if self.app_dir.name.lower() == "dist":
-            return self.app_dir.parent / WELCOME_COOKIE
-        return self.app_dir / WELCOME_COOKIE
+            return self.app_dir.parent
+        return self.app_dir
+
+    def welcome_cookie_path(self) -> Path:
+        return self.app_cookie_dir() / WELCOME_COOKIE
+
+    def last_tool_cookie_path(self) -> Path:
+        return self.app_cookie_dir() / LAST_TOOL_COOKIE
+
+    def read_last_tool_dir(self) -> Path | None:
+        cookie_path = self.last_tool_cookie_path()
+        if not cookie_path.exists():
+            return None
+
+        try:
+            stored_path = cookie_path.read_text(encoding="utf-8").splitlines()[0].strip()
+        except (OSError, IndexError):
+            return None
+
+        if not stored_path:
+            return None
+
+        last_tool_dir = Path(stored_path).expanduser().resolve()
+        if last_tool_dir.exists() and last_tool_dir.is_dir():
+            return last_tool_dir
+        return None
+
+    def write_last_tool_cookie(self) -> None:
+        try:
+            self.last_tool_cookie_path().write_text(
+                f"{self.project_dir}\n{_dt.datetime.now().isoformat(timespec='seconds')}\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            self.log_error(f"Impossible d'écrire le cookie du dernier outil : {exc}")
 
     def show_welcome_if_first_use(self) -> None:
         cookie_path = self.welcome_cookie_path()
@@ -1033,6 +1071,7 @@ class GitDTLApp:
         self.log_file = self.log_dir / "gitdtl.log"
         self.project_selected = True
         self._ensure_log()
+        self.write_last_tool_cookie()
         if write_log:
             self.log_info(f"Projet ouvert : {self.project_dir}")
         self.update_project_label()
