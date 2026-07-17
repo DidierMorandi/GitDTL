@@ -2,6 +2,7 @@
 
 import datetime as _dt
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -14,7 +15,7 @@ from tkinter import filedialog, ttk
 
 
 APP_NAME = "GitDTL"
-APP_VERSION = "v1.0-13"
+APP_VERSION = "v1.0-15"
 APP_SUBTITLE = "Git simplifié pour les projets DTL"
 HELP_FILE = "aide.md"
 EXPERT_FILE = "expert_git.md"
@@ -875,6 +876,7 @@ class GitDTLApp:
         x_offset: int = 0,
         y_offset: int = 0,
         modal: bool = True,
+        initial_value: str = "",
     ) -> str | None:
         answer = {"value": None}
 
@@ -922,6 +924,9 @@ class GitDTLApp:
             width=56,
         )
         entry.pack(fill="x", padx=18, pady=(0, 12), ipady=7)
+        if initial_value:
+            entry.insert(0, initial_value)
+            entry.selection_range(0, tk.END)
 
         button_bar = tk.Frame(window, bg=COLOR_BG, padx=18)
         button_bar.pack(fill="x", pady=(0, 16))
@@ -1765,14 +1770,40 @@ class GitDTLApp:
             self.show_error(exc)
             return
 
-        message = self.ask_text(
-            "Valider les changements",
-            "Description du changement :",
+        assistance = self.build_commit_assistance()
+        if assistance is None:
+            close_diff_window()
+            return
+        summary, proposed_message = assistance
+        if diff_window is not None and diff_window.winfo_exists():
+            diff_window.attributes("-topmost", False)
+        choice = self.ask_choice(
+            "Assistant de validation",
+            "Résumé des modifications détectées :\n\n"
+            + "\n".join(f"✓ {item}" for item in summary)
+            + "\n\nMessage proposé pour le commit :\n\n"
+            + proposed_message,
+            [
+                ("1  Accepter", "accept"),
+                ("2  Modifier", "edit"),
+                ("3  Saisir un autre message", "replace"),
+            ],
             self.help_text("commit_message"),
-            x_offset=320,
-            y_offset=220,
-            modal=False,
         )
+        if choice == "accept":
+            message = proposed_message
+        elif choice in {"edit", "replace"}:
+            message = self.ask_text(
+                "Valider les changements",
+                "Description du changement :",
+                self.help_text("commit_message"),
+                x_offset=320,
+                y_offset=220,
+                modal=False,
+                initial_value=proposed_message if choice == "edit" else "",
+            )
+        else:
+            message = None
         if diff_window is not None and diff_window.winfo_exists():
             diff_window.attributes("-topmost", False)
         if not message:
@@ -1793,6 +1824,151 @@ class GitDTLApp:
         except Exception as exc:
             close_diff_window()
             self.show_error(exc)
+
+    def build_commit_assistance(self) -> tuple[list[str], str] | None:
+        names = self.run_git(["diff", "--cached", "--name-status"])
+        diff = self.run_git(["diff", "--cached", "--unified=0"])
+        if names.returncode != 0:
+            self.show_command_error(names)
+            return None
+        if diff.returncode != 0:
+            self.show_command_error(diff)
+            return None
+        return self.analyze_commit_changes(names.stdout, diff.stdout)
+
+    @staticmethod
+    def analyze_commit_changes(name_status: str, diff: str) -> tuple[list[str], str]:
+        files = []
+        statuses = {}
+        for line in name_status.splitlines():
+            parts = line.split("\t")
+            if len(parts) < 2:
+                continue
+            status, filename = parts[0], parts[-1]
+            files.append(filename)
+            statuses[filename] = status[:1]
+
+        added_lines = [
+            line[1:]
+            for line in diff.splitlines()
+            if line.startswith("+") and not line.startswith("+++")
+        ]
+        removed_lines = [
+            line[1:]
+            for line in diff.splitlines()
+            if line.startswith("-") and not line.startswith("---")
+        ]
+        added_text = "\n".join(added_lines)
+        changed_text = f"{added_text}\n" + "\n".join(removed_lines)
+
+        function_pattern = re.compile(
+            r"^\s*(?:async\s+def|def)\s+([A-Za-z_]\w*)\s*\(|"
+            r"^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\("
+        )
+        new_functions = sum(bool(function_pattern.search(line)) for line in added_lines)
+        fix_pattern = re.compile(
+            r"\b(?:bug|fix(?:e[ds])?|corrig(?:e|é|ée|er|és|ées)|erreur)\b",
+            flags=re.IGNORECASE,
+        )
+        fix_markers = [line for line in added_lines if fix_pattern.search(line)]
+
+        lower_files = [filename.lower().replace("\\", "/") for filename in files]
+        french_docs = any(
+            filename.endswith(("readme_fr.md", "guide_utilisateur.html", "manuel_de_reference.html"))
+            for filename in lower_files
+        )
+        english_docs = any(
+            filename.endswith(("readme.md", "user_guide.html", "reference_manual.html"))
+            and not filename.endswith("readme_fr.md")
+            for filename in lower_files
+        )
+        version_changed = any(
+            filename.endswith((".dtl_version", "pyproject.toml", "package.json"))
+            for filename in lower_files
+        ) or bool(re.search(r"APP_VERSION\s*=", changed_text))
+
+        summary = []
+        if new_functions:
+            label = "nouvelle fonction" if new_functions == 1 else "nouvelles fonctions"
+            summary.append(f"{new_functions} {label}")
+        if fix_markers:
+            count = len(fix_markers)
+            label = "bug corrigé" if count == 1 else "bugs corrigés"
+            summary.append(f"{count} {label}")
+        if french_docs and english_docs:
+            summary.append("Documentation FR/EN mise à jour")
+        elif french_docs:
+            summary.append("Documentation FR mise à jour")
+        elif english_docs:
+            summary.append("Documentation EN mise à jour")
+        if version_changed:
+            summary.append("Version incrémentée")
+
+        added_files = sum(status == "A" for status in statuses.values())
+        modified_files = sum(status == "M" for status in statuses.values())
+        deleted_files = sum(status == "D" for status in statuses.values())
+        if not summary:
+            details = []
+            if added_files:
+                details.append(f"{added_files} ajouté{'s' if added_files > 1 else ''}")
+            if modified_files:
+                details.append(f"{modified_files} modifié{'s' if modified_files > 1 else ''}")
+            if deleted_files:
+                details.append(f"{deleted_files} supprimé{'s' if deleted_files > 1 else ''}")
+            summary.append(f"{len(files)} fichier{'s' if len(files) > 1 else ''} changé{'s' if len(files) > 1 else ''}"
+                           + (f" ({', '.join(details)})" if details else ""))
+
+        doc_extensions = {".md", ".rst", ".txt", ".html"}
+        source_extensions = {".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".cs", ".php", ".go", ".rs"}
+        only_docs = bool(files) and all(Path(filename).suffix.lower() in doc_extensions for filename in files)
+        has_source = any(Path(filename).suffix.lower() in source_extensions for filename in files)
+        if only_docs:
+            commit_type = "docs"
+        elif fix_markers:
+            commit_type = "fix"
+        elif new_functions:
+            commit_type = "feat"
+        elif has_source and added_lines and removed_lines:
+            commit_type = "refactor"
+        else:
+            commit_type = "chore"
+
+        function_names = [next((group for group in match.groups() if group), "")
+                          for line in added_lines if (match := function_pattern.search(line))]
+        scope = GitDTLApp.suggest_commit_scope(files, function_names)
+        subject_by_type = {
+            "docs": "update documentation",
+            "fix": "correct detected issues",
+            "feat": "add new functionality",
+            "refactor": "improve implementation",
+            "chore": "update project files",
+        }
+        subject = GitDTLApp.suggest_commit_subject(commit_type, function_names, subject_by_type[commit_type])
+        return summary, f"{commit_type}({scope}): {subject}"
+
+    @staticmethod
+    def suggest_commit_scope(files: list[str], function_names: list[str]) -> str:
+        for keyword in ("search", "date", "prompt", "commit", "release", "version", "documentation"):
+            if any(keyword in name.lower() for name in function_names):
+                return keyword
+        source_files = [Path(filename) for filename in files if Path(filename).suffix.lower() == ".py"]
+        if len(source_files) == 1:
+            stem = re.sub(r"[^a-z0-9]+", "-", source_files[0].stem.lower()).strip("-")
+            return "app" if stem == "gitdtl" else stem
+        return "project"
+
+    @staticmethod
+    def suggest_commit_subject(commit_type: str, function_names: list[str], fallback: str) -> str:
+        words = set(re.findall(r"[a-z0-9]+", "_".join(function_names).lower()))
+        if commit_type == "fix":
+            improvements = []
+            if {"date", "prompt"}.issubset(words):
+                improvements.append("date prompt handling")
+            if "empty" in words and ({"result", "results"} & words):
+                improvements.append("empty results")
+            if improvements:
+                return "improve " + " and ".join(improvements)
+        return fallback
 
     def is_nothing_to_commit(self, result: subprocess.CompletedProcess[str]) -> bool:
         output = f"{result.stdout}\n{result.stderr}".lower()

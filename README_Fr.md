@@ -83,6 +83,8 @@ GitDTL s'ouvre sur le dossier courant. Le dossier de projet peut être changé �
 
 **Avertissement avant publication.** Si des fichiers modifiés ne sont pas encore inclus dans un commit, GitDTL les liste et demande confirmation avant le push.
 
+**Assistant de validation.** Avant de créer un commit, GitDTL analyse les changements indexés, affiche un résumé des éléments détectés et propose un message au format Conventional Commits. L'utilisateur peut accepter ce message, le modifier avec le texte proposé prérempli, ou saisir un tout autre message.
+
 **Guidage visuel.** GitDTL met en évidence les prochaines actions utiles après lecture de l'état Git.
 
 **Commande envoyée.** Une ligne discrète affiche la dernière commande Git réellement exécutée.
@@ -168,7 +170,7 @@ MIT - voir le fichier `LICENSE`.
 
 ## Mise à jour - 14 juin 2026
 
-Le code courant annonce `APP_VERSION = "v1.0-3"` dans `GitDTL.py`.
+Le code courant annonce `APP_VERSION = "v1.0-15"` dans `GitDTL.py`.
 
 Nouveautés confirmées :
 

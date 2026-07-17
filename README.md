@@ -91,6 +91,8 @@ GitDTL starts from the current folder. The managed project folder can be changed
 
 **Commit assistance.** Before option 6 asks for the commit message, GitDTL displays the current diff and status summary in a separate visible window. This helps the user write a meaningful commit message. The diff window stays visible while the commit-message prompt is open.
 
+GitDTL also analyzes the staged changes, displays a concise detected-change summary, and proposes a Conventional Commits message. The user can accept it, edit the prefilled proposal, or enter a different message.
+
 **Publish warning.** If local changes are not yet committed, GitDTL lists them and asks for confirmation before running `git push`.
 
 **Visual guidance.** GitDTL highlights the next useful action after reading the project status, after adding files, after committing, or after publishing.
